@@ -1,0 +1,130 @@
+\hypertarget{a00018}{}\subsection{example-\/collect.\+c}
+
+\begin{DoxyCodeInclude}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * Copyright (c) 2007, Swedish Institute of Computer Science.}
+\textcolor{comment}{ * All rights reserved.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * Redistribution and use in source and binary forms, with or without}
+\textcolor{comment}{ * modification, are permitted provided that the following conditions}
+\textcolor{comment}{ * are met:}
+\textcolor{comment}{ * 1. Redistributions of source code must retain the above copyright}
+\textcolor{comment}{ *    notice, this list of conditions and the following disclaimer.}
+\textcolor{comment}{ * 2. Redistributions in binary form must reproduce the above copyright}
+\textcolor{comment}{ *    notice, this list of conditions and the following disclaimer in the}
+\textcolor{comment}{ *    documentation and/or other materials provided with the distribution.}
+\textcolor{comment}{ * 3. Neither the name of the Institute nor the names of its contributors}
+\textcolor{comment}{ *    may be used to endorse or promote products derived from this software}
+\textcolor{comment}{ *    without specific prior written permission.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND}
+\textcolor{comment}{ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE}
+\textcolor{comment}{ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE}
+\textcolor{comment}{ * ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE}
+\textcolor{comment}{ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL}
+\textcolor{comment}{ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS}
+\textcolor{comment}{ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)}
+\textcolor{comment}{ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT}
+\textcolor{comment}{ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY}
+\textcolor{comment}{ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF}
+\textcolor{comment}{ * SUCH DAMAGE.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * This file is part of the Contiki operating system.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ */}
+\textcolor{comment}{}
+\textcolor{comment}{/**}
+\textcolor{comment}{ * \(\backslash\)file}
+\textcolor{comment}{ *         Example of how the collect primitive works.}
+\textcolor{comment}{ * \(\backslash\)author}
+\textcolor{comment}{ *         Adam Dunkels <adam@sics.se>}
+\textcolor{comment}{ */}
+
+\textcolor{preprocessor}{#include "contiki.h"}
+\textcolor{preprocessor}{#include "lib/random.h"}
+\textcolor{preprocessor}{#include "net/rime.h"}
+\textcolor{preprocessor}{#include "net/rime/collect.h"}
+\textcolor{preprocessor}{#include "dev/leds.h"}
+\textcolor{preprocessor}{#include "dev/button-sensor.h"}
+
+\textcolor{preprocessor}{#include "net/netstack.h"}
+
+\textcolor{preprocessor}{#include <stdio.h>}
+
+\textcolor{keyword}{static} \textcolor{keyword}{struct }collect\_conn tc;
+
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+PROCESS(example\_collect\_process, \textcolor{stringliteral}{"Test collect process"});
+AUTOSTART\_PROCESSES(&example\_collect\_process);
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{keyword}{static} \textcolor{keywordtype}{void}
+recv(\textcolor{keyword}{const} rimeaddr\_t *originator, uint8\_t seqno, uint8\_t hops)
+\{
+  printf(\textcolor{stringliteral}{"Sink got message from %d.%d, seqno %d, hops %d: len %d '%s'\(\backslash\)n"},
+         originator->u8[0], originator->u8[1],
+         seqno, hops,
+         packetbuf\_datalen(),
+         (\textcolor{keywordtype}{char} *)packetbuf\_dataptr());
+\}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{keyword}{static} \textcolor{keyword}{const} \textcolor{keyword}{struct }collect\_callbacks callbacks = \{ recv \};
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+PROCESS\_THREAD(example\_collect\_process, ev, data)
+\{
+  \textcolor{keyword}{static} \textcolor{keyword}{struct }etimer periodic;
+  \textcolor{keyword}{static} \textcolor{keyword}{struct }etimer et;
+  
+  PROCESS\_BEGIN();
+
+  collect\_open(&tc, 130, COLLECT\_ROUTER, &callbacks);
+
+  \textcolor{keywordflow}{if}(rimeaddr\_node\_addr.u8[0] == 1 &&
+     rimeaddr\_node\_addr.u8[1] == 0) \{
+        printf(\textcolor{stringliteral}{"I am sink\(\backslash\)n"});
+        collect\_set\_sink(&tc, 1);
+  \}
+
+  \textcolor{comment}{/* Allow some time for the network to settle. */}
+  etimer\_set(&et, 120 * CLOCK\_SECOND);
+  PROCESS\_WAIT\_UNTIL(etimer\_expired(&et));
+
+  \textcolor{keywordflow}{while}(1) \{
+
+    \textcolor{comment}{/* Send a packet every 30 seconds. */}
+    \textcolor{keywordflow}{if}(etimer\_expired(&periodic)) \{
+      etimer\_set(&periodic, CLOCK\_SECOND * 30);
+      etimer\_set(&et, random\_rand() % (CLOCK\_SECOND * 30));
+    \}
+
+    PROCESS\_WAIT\_EVENT();
+
+
+    \textcolor{keywordflow}{if}(etimer\_expired(&et)) \{
+      \textcolor{keyword}{static} rimeaddr\_t oldparent;
+      \textcolor{keyword}{const} rimeaddr\_t *parent;
+
+      printf(\textcolor{stringliteral}{"Sending\(\backslash\)n"});
+      packetbuf\_clear();
+      packetbuf\_set\_datalen(sprintf(packetbuf\_dataptr(),
+                                  \textcolor{stringliteral}{"%s"}, \textcolor{stringliteral}{"Hello"}) + 1);
+      collect\_send(&tc, 15);
+
+      parent = collect\_parent(&tc);
+      \textcolor{keywordflow}{if}(!rimeaddr\_cmp(parent, &oldparent)) \{
+        \textcolor{keywordflow}{if}(!rimeaddr\_cmp(&oldparent, &rimeaddr\_null)) \{
+          printf(\textcolor{stringliteral}{"#L %d 0\(\backslash\)n"}, oldparent.u8[0]);
+        \}
+        \textcolor{keywordflow}{if}(!rimeaddr\_cmp(parent, &rimeaddr\_null)) \{
+          printf(\textcolor{stringliteral}{"#L %d 1\(\backslash\)n"}, parent->u8[0]);
+        \}
+        rimeaddr\_copy(&oldparent, parent);
+      \}
+    \}
+
+  \}
+
+  PROCESS\_END();
+\}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\end{DoxyCodeInclude}
+ 

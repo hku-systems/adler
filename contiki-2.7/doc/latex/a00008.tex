@@ -1,0 +1,35 @@
+\hypertarget{a00008}{}\subsection{example-\/list.\+c}
+
+\begin{DoxyCodeInclude}
+\textcolor{preprocessor}{#include "lib/list.h"}
+
+\textcolor{keyword}{struct }example\_list\_struct \{
+  \textcolor{keyword}{struct }*next;
+  \textcolor{keywordtype}{int} number;
+\};
+
+LIST(example\_list);
+
+\textcolor{keyword}{static} \textcolor{keyword}{struct }example\_list\_struct element1, element2;
+
+\textcolor{keywordtype}{void}
+example\_function(\textcolor{keywordtype}{void})
+\{
+  \textcolor{keyword}{struct }example\_list\_struct *s;
+
+  list\_init(example\_list);
+
+  element1.number = 1;
+  list\_add(example\_list, &element1);
+
+  element2.number = 2;
+  list\_add(example\_list, &element2);
+
+  \textcolor{keywordflow}{for}(s = list\_head(example\_list);
+      s != NULL;
+      s = list\_item\_next(s)) \{
+    printf(\textcolor{stringliteral}{"List element number %d\(\backslash\)n"}, s->number);
+  \}
+\}
+\end{DoxyCodeInclude}
+ 

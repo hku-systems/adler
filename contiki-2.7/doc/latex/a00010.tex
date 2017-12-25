@@ -1,0 +1,170 @@
+\hypertarget{a00010}{}\subsection{example-\/psock-\/server.\+c}
+
+\begin{DoxyCodeInclude}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * This is a small example of how to write a TCP server using}
+\textcolor{comment}{ * Contiki's protosockets. It is a simple server that accepts one line}
+\textcolor{comment}{ * of text from the TCP connection, and echoes back the first 10 bytes}
+\textcolor{comment}{ * of the string, and then closes the connection.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * The server only handles one connection at a time.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ */}
+
+\textcolor{preprocessor}{#include <string.h>}
+
+\textcolor{comment}{/*}
+\textcolor{comment}{ * We include "contiki-net.h" to get all network definitions and}
+\textcolor{comment}{ * declarations.}
+\textcolor{comment}{ */}
+\textcolor{preprocessor}{#include "contiki-net.h"}
+
+\textcolor{comment}{/*}
+\textcolor{comment}{ * We define one protosocket since we've decided to only handle one}
+\textcolor{comment}{ * connection at a time. If we want to be able to handle more than one}
+\textcolor{comment}{ * connection at a time, each parallell connection needs its own}
+\textcolor{comment}{ * protosocket.}
+\textcolor{comment}{ */}
+\textcolor{keyword}{static} \textcolor{keyword}{struct }psock ps;
+
+\textcolor{comment}{/*}
+\textcolor{comment}{ * We must have somewhere to put incoming data, and we use a 10 byte}
+\textcolor{comment}{ * buffer for this purpose.}
+\textcolor{comment}{ */}
+\textcolor{keyword}{static} \textcolor{keywordtype}{char} buffer[10];
+
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * A protosocket always requires a protothread. The protothread}
+\textcolor{comment}{ * contains the code that uses the protosocket. We define the}
+\textcolor{comment}{ * protothread here.}
+\textcolor{comment}{ */}
+\textcolor{keyword}{static}
+PT\_THREAD(handle\_connection(\textcolor{keyword}{struct} psock *p))
+\{
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * A protosocket's protothread must start with a PSOCK\_BEGIN(), with}
+\textcolor{comment}{   * the protosocket as argument.}
+\textcolor{comment}{   *}
+\textcolor{comment}{   * Remember that the same rules as for protothreads apply: do NOT}
+\textcolor{comment}{   * use local variables unless you are very sure what you are doing!}
+\textcolor{comment}{   * Local (stack) variables are not preserved when the protothread}
+\textcolor{comment}{   * blocks.}
+\textcolor{comment}{   */}
+  PSOCK\_BEGIN(p);
+
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * We start by sending out a welcoming message. The message is sent}
+\textcolor{comment}{   * using the PSOCK\_SEND\_STR() function that sends a null-terminated}
+\textcolor{comment}{   * string.}
+\textcolor{comment}{   */}
+  PSOCK\_SEND\_STR(p, \textcolor{stringliteral}{"Welcome, please type something and press return.\(\backslash\)n"});
+  
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * Next, we use the PSOCK\_READTO() function to read incoming data}
+\textcolor{comment}{   * from the TCP connection until we get a newline character. The}
+\textcolor{comment}{   * number of bytes that we actually keep is dependant of the length}
+\textcolor{comment}{   * of the input buffer that we use. Since we only have a 10 byte}
+\textcolor{comment}{   * buffer here (the buffer[] array), we can only remember the first}
+\textcolor{comment}{   * 10 bytes received. The rest of the line up to the newline simply}
+\textcolor{comment}{   * is discarded.}
+\textcolor{comment}{   */}
+  PSOCK\_READTO(p, \textcolor{charliteral}{'\(\backslash\)n'});
+  
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * And we send back the contents of the buffer. The PSOCK\_DATALEN()}
+\textcolor{comment}{   * function provides us with the length of the data that we've}
+\textcolor{comment}{   * received. Note that this length will not be longer than the input}
+\textcolor{comment}{   * buffer we're using.}
+\textcolor{comment}{   */}
+  PSOCK\_SEND\_STR(p, \textcolor{stringliteral}{"Got the following data: "});
+  PSOCK\_SEND(p, buffer, PSOCK\_DATALEN(p));
+  PSOCK\_SEND\_STR(p, \textcolor{stringliteral}{"Good bye!\(\backslash\)r\(\backslash\)n"});
+
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * We close the protosocket.}
+\textcolor{comment}{   */}
+  PSOCK\_CLOSE(p);
+
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * And end the protosocket's protothread.}
+\textcolor{comment}{   */}
+  PSOCK\_END(p);
+\}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * We declare the process.}
+\textcolor{comment}{ */}
+PROCESS(example\_psock\_server\_process, \textcolor{stringliteral}{"Example protosocket server"});
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * The definition of the process.}
+\textcolor{comment}{ */}
+PROCESS\_THREAD(example\_psock\_server\_process, ev, data)
+\{
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * The process begins here.}
+\textcolor{comment}{   */}
+  PROCESS\_BEGIN();
+
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * We start with setting up a listening TCP port. Note how we're}
+\textcolor{comment}{   * using the UIP\_HTONS() macro to convert the port number (1010) to}
+\textcolor{comment}{   * network byte order as required by the tcp\_listen() function.}
+\textcolor{comment}{   */}
+  tcp\_listen(UIP\_HTONS(1010));
+
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * We loop for ever, accepting new connections.}
+\textcolor{comment}{   */}
+  \textcolor{keywordflow}{while}(1) \{
+
+    \textcolor{comment}{/*}
+\textcolor{comment}{     * We wait until we get the first TCP/IP event, which probably}
+\textcolor{comment}{     * comes because someone connected to us.}
+\textcolor{comment}{     */}
+    PROCESS\_WAIT\_EVENT\_UNTIL(ev == tcpip\_event);
+
+    \textcolor{comment}{/*}
+\textcolor{comment}{     * If a peer connected with us, we'll initialize the protosocket}
+\textcolor{comment}{     * with PSOCK\_INIT().}
+\textcolor{comment}{     */}
+    \textcolor{keywordflow}{if}(uip\_connected()) \{
+      
+      \textcolor{comment}{/*}
+\textcolor{comment}{       * The PSOCK\_INIT() function initializes the protosocket and}
+\textcolor{comment}{       * binds the input buffer to the protosocket.}
+\textcolor{comment}{       */}
+      PSOCK\_INIT(&ps, buffer, \textcolor{keyword}{sizeof}(buffer));
+
+      \textcolor{comment}{/*}
+\textcolor{comment}{       * We loop until the connection is aborted, closed, or times out.}
+\textcolor{comment}{       */}
+      \textcolor{keywordflow}{while}(!(uip\_aborted() || uip\_closed() || uip\_timedout())) \{
+
+        \textcolor{comment}{/*}
+\textcolor{comment}{         * We wait until we get a TCP/IP event. Remember that we}
+\textcolor{comment}{         * always need to wait for events inside a process, to let}
+\textcolor{comment}{         * other processes run while we are waiting.}
+\textcolor{comment}{         */}
+        PROCESS\_WAIT\_EVENT\_UNTIL(ev == tcpip\_event);
+
+        \textcolor{comment}{/*}
+\textcolor{comment}{         * Here is where the real work is taking place: we call the}
+\textcolor{comment}{         * handle\_connection() protothread that we defined above. This}
+\textcolor{comment}{         * protothread uses the protosocket to receive the data that}
+\textcolor{comment}{         * we want it to.}
+\textcolor{comment}{         */}
+        handle\_connection(&ps);
+      \}
+    \}
+  \}
+  
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * We must always declare the end of a process.}
+\textcolor{comment}{   */}
+  PROCESS\_END();
+\}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\end{DoxyCodeInclude}
+ 

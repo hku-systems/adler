@@ -1,0 +1,230 @@
+\hypertarget{a00075}{}\subsection{u\+IP I\+Pv6 specific features}
+\label{a00075}\index{u\+I\+P I\+Pv6 specific features@{u\+I\+P I\+Pv6 specific features}}
+
+
+The u\+IP I\+Pv6 stack provides new Internet communication abilities to Contiki.  
+
+
+The u\+IP I\+Pv6 stack provides new Internet communication abilities to Contiki. 
+
+This document describes Ipv6 specific features. For features that are common to the I\+Pv4 and I\+Pv6 code please refer to \hyperlink{a00074}{u\+IP}.
+
+
+
+\hypertarget{a00075_intro}{}\subsubsection{Introduction}\label{a00075_intro}
+Ipv6 is to replace I\+Pv4 in a near future. Indeed, to move to a real {\itshape  Internet of Things } a larger address space is required. This extended address space (2$^\wedge$128 instead of 2$^\wedge$32) is one of the key features of I\+Pv6 together with its simplified header format, its improved support for extensions and options, and its new QoS and security capabilities.
+
+The uip I\+Pv6 stack implementation targets constrained devices such as sensors. The code size is around 11.\+5\+Kbyte and the R\+AM usage around 1.\+7\+Kbyte (see \hyperlink{a00075_size}{below} for more detailed information). Our implementation follows closely R\+FC 4294 {\itshape I\+Pv6 Node Requirements} whose goal is to allow \char`\"{}\+I\+Pv6 to function well and
+interoperate in a large number of situations and deployments\char`\"{}.
+
+The implementation currently does not support any router features (it does not forward packets, send R\+As...)
+
+
+
+\hypertarget{a00075_protocol}{}\subsubsection{I\+Pv6 Protocol Implementation}\label{a00075_protocol}
+This section gives a short overview of the different protocols that are part of the u\+IP I\+Pv6 stack. A complete description can be found in the corresponding I\+E\+TF standards which are available at \href{http://www.ietf.org/rfc.html}{\tt http\+://www.\+ietf.\+org/rfc.\+html}.
+
+\begin{DoxyNote}{Note}
+The \#\+U\+I\+P\+\_\+\+C\+O\+N\+F\+\_\+\+I\+P\+V6 compilation flag is used to enable I\+Pv6 (and disable I\+Pv4). It is also recommended to set \#\+U\+I\+P\+\_\+\+C\+O\+N\+F\+\_\+\+I\+P\+V6\+\_\+\+C\+H\+E\+C\+KS to 1 if one cannot guarantee that the incoming packets are correctly formed.
+\end{DoxyNote}
+\hypertarget{a00075_ipv6}{}\paragraph{I\+Pv6 (\+R\+F\+C 2460)}\label{a00075_ipv6}
+The IP packets are processed in the \#uip\+\_\+process function. After a few validity checks on the I\+Pv6 header, the extension headers are processed until an upper layer (I\+C\+M\+Pv6, U\+DP or T\+CP) header is found. We support 4 extension headers\+: \begin{DoxyItemize}
+\item Hop-\/by-\/\+Hop Options\+: this header is used to carry optional information that need to be examined only by a packet\textquotesingle{}s destination node. \item Routing\+: this header is used by an I\+Pv6 source to list one or more intermediate nodes to be \char`\"{}visited\char`\"{} on the way to a packet\textquotesingle{}s destination. \item Fragment\+: this header is used when a large packet is divided into smaller fragments. \item Destination Options\+: this header is used to carry optional information that need be examined only by a packet\textquotesingle{}s destination node The Authentication and E\+SP headers are not currently supported.\end{DoxyItemize}
+The I\+Pv6 header, extension headers, and options are defined in uip.\+h.
+
+Although we can receive packets with the extension headers listed above, we do not offer support to send packets with extension headers.
+
+{\bfseries Fragment Reassembly}~\newline
+ This part of the code is very similar to the \hyperlink{a00074_ipreass}{I\+Pv4 fragmentation code}. The only difference is that the fragmented packet is not assumed to be a T\+CP packet. As a result, we use a different timer to time-\/out reassembly if all fragments have not been received after \#\+U\+I\+P\+\_\+\+R\+E\+A\+S\+S\+\_\+\+M\+A\+X\+A\+GE = 60s. \begin{DoxyNote}{Note}
+Fragment reassembly is enabled if \#\+U\+I\+P\+\_\+\+C\+O\+N\+F\+\_\+\+R\+E\+A\+S\+S\+E\+M\+B\+LY is set to 1. 
+
+We can only reassemble packet of at most \#\+U\+I\+P\+\_\+\+L\+I\+N\+K\+\_\+\+M\+TU = 1280 bytes as we do not have larger buffers.
+\end{DoxyNote}
+\hypertarget{a00075_address}{}\paragraph{Interface and Addressing (\+R\+F\+C 4291, R\+F\+C 4861 p.\+51, R\+F\+C 4862 p.\+10)}\label{a00075_address}
+An I\+Pv6 address has 128 bits and is defined as follows\+: 
+\begin{DoxyCode}
+\textcolor{keyword}{typedef} \textcolor{keyword}{union }uip\_ip6addr\_t \{
+  uint8\_t  u8[16]
+  uint16\_t u16[8];
+\} uip\_ip6addr\_t;
+\end{DoxyCode}
+
+
+We assume that each node has a {\itshape single interface} of type \#uip\+\_\+netif.
+
+Each interface can have up to \#\+U\+I\+P\+\_\+\+N\+E\+T\+I\+F\+\_\+\+M\+A\+X\+\_\+\+A\+D\+D\+R\+E\+S\+S\+ES unicast I\+Pv6 addresses including its link-\/local address. It also has a solicited-\/node multicast address. We assume that the unicast addresses are obtained via \hyperlink{a00075_autoconf}{stateless address autoconfiguration} so that the solicited-\/node address is the same for all the unicast addresses. Indeed, the solicited-\/node multicast address is formed by combining the prefix F\+F02\+:\+:1\+:F\+F00\+:0/104 and the last 24-\/bits of the corresponding I\+Pv6 address. When using stateless address autoconfiguration these bits are always equal to the last 24-\/bits of the link-\/layer address.\hypertarget{a00075_multicast}{}\paragraph{Multicast support}\label{a00075_multicast}
+We do not support applications using multicast. Nevertheless, our node should join the all-\/nodes multicast address, as well as its solicited-\/node multicast address. Joining the all-\/nodes multicast address does not require any action. Joining the solicited-\/node multicast address is done using Multicast Listener Discovery (M\+LD or M\+L\+Dv2). More exactly, the node should send a M\+LD report packet. However this step can be safely skipped and we do so.\hypertarget{a00075_nd}{}\paragraph{Neighbor Discovery (\+R\+F\+C 4861)}\label{a00075_nd}
+"I\+Pv6 nodes on the same link use Neighbor Discovery to discover each other\textquotesingle{}s presence, to determine each other\textquotesingle{}s link-\/layer addresses, to find routers, and to maintain reachability information about the paths to active neighbors" (citation from the abstract of R\+FC 4861).
+
+\begin{DoxyNote}{Note}
+In I\+Pv6 terminology, a {\itshape link} is a communication medium over which nodes can communicate at the link layer, i.\+e., the layer immediately below IP (e.\+g.\+: ethernet, 802.\+11, etc.). Neighbors are thus nodes attached to the same link.
+\end{DoxyNote}
+Neighbor Discovery (ND) replaces A\+RP in I\+Pv4 but does much more.
+
+{\bfseries Neighbor discovery messages }~\newline
+
+
+\begin{DoxyItemize}
+\item Neighbor Solicitation (NS)~\newline
+Sent by a node during duplicate address detection, address resolution or neighbor unreachability detection (see explanations below).~\newline
+Possible option\+: Source link-\/layer address \item Neighbor Advertisement (NA)~\newline
+Sent by a node in response to a NS.~\newline
+Possible option\+: Target link-\/layer address \item Router Advertisement (RA)~\newline
+Sent periodically by routers to advertise their presence together with various link and Internet parameters.~\newline
+Possible options\+: Source link-\/layer address, M\+TU, Prefix Information \item Router Solicitation (RS)~\newline
+Sent by a host to request routers to generate a RA immediately rather than at their next scheduled time. Received RS are discarded.~\newline
+Possible option\+: Source link-\/layer address \item Redirect Message~\newline
+Not supported\end{DoxyItemize}
+The structures corresponding to the different message headers and options are in uip-\/nd6.\+h. The functions used to send / process this messages are also described in uip-\/nd6.\+h although the actual code is in uip-\/nd6-\/io.\+c.
+
+{\bfseries Neighbor discovery structures }~\newline
+ We use the following neighbor discovery structures (declared in uip-\/nd6.\+c)\+: \begin{DoxyItemize}
+\item A {\itshape neighbor cache} with entries of type \#uip\+\_\+nd6\+\_\+neighbor \item A {\itshape prefix list} with entries of type \#uip\+\_\+nd6\+\_\+prefix \item A {\itshape default router list} with entries of type \#uip\+\_\+nd6\+\_\+defrouter\end{DoxyItemize}
+Each of this structure has its own add, remove and lookup functions. To update an entry in a ND structure, we first do a lookup to obtain a pointer to the entry, we then directly modify the different entry fields.
+
+{\bfseries Neighbor discovery processes }~\newline
+ \begin{DoxyItemize}
+\item Address resolution~\newline
+Determine the link-\/layer address of a neighbor given its I\+Pv6 address.~\newline
+-\/$>$ send a NS (done in \#tcpip\+\_\+ipv6\+\_\+output). \item Neighbor unreachability detection~\newline
+Verify that a neighbor is still reachable via a cached link-\/layer address.~\newline
+-\/$>$ send a NS (done in \#uip\+\_\+nd6\+\_\+periodic). \item Next-\/hop determination~\newline
+Map an I\+Pv6 destination address into the I\+Pv6 address of the neighbor to which traffic for the destination should be sent.~\newline
+-\/$>$ look at on-\/link prefixes, if the destination is not on-\/link, choose a default router, else send directly (done in \#tcpip\+\_\+ipv6\+\_\+output). \item Router, prefix, and parameter discovery~\newline
+Update the list of default routers, on-\/link prefixes, and the network parameters.~\newline
+-\/$>$ receive a RA (see \#uip\+\_\+nd6\+\_\+io\+\_\+ra\+\_\+input).\end{DoxyItemize}
+\hypertarget{a00075_autoconf}{}\paragraph{Stateless Address Autoconfiguration (\+R\+F\+C 4862)}\label{a00075_autoconf}
+R\+FC 4862 defines two main processes\+: \begin{DoxyItemize}
+\item Duplicate Address Detection (D\+AD)~\newline
+Make sure that an address the node wished to use is not already in use by another node.~\newline
+-\/$>$ send a NS (done in \#uip\+\_\+netif\+\_\+dad) \item Address Autoconfiguration~\newline
+Configure an address for an interface by combining a received prefix and the interface ID (see \#uip\+\_\+netif\+\_\+addr\+\_\+add). The interface ID is obtained from the link-\/layer address using \#uip\+\_\+netif\+\_\+get\+\_\+interface\+\_\+id.~\newline
+-\/$>$ Receive a RA with a prefix information option that has the autonomous flag set.\end{DoxyItemize}
+When an interface becomes active, its link-\/local address is created by combining the F\+E80\+:\+:0/64 prefix and the interface ID. D\+AD is then performed for this link-\/local address. Available routers are discovered by sending up to \#\+U\+I\+P\+\_\+\+N\+D6\+\_\+\+M\+A\+X\+\_\+\+R\+T\+R\+\_\+\+S\+O\+L\+I\+C\+I\+T\+A\+T\+I\+O\+NS RS packets. Address autoconfiguration is then performed based on the prefix information received in the RA. The interface initialization is performed in \#uip\+\_\+netif\+\_\+init.\hypertarget{a00075_icmpv6}{}\paragraph{I\+C\+M\+Pv6 (\+R\+F\+C 4443)}\label{a00075_icmpv6}
+We support I\+C\+M\+Pv6 Error messages as well as Echo Reply and Echo Request messages. The application used for sending Echo Requests (see ping6.\+c) is not part of the IP stack.
+
+\begin{DoxyNote}{Note}
+R\+FC 4443 stipulates that \textquotesingle{}Every I\+C\+M\+Pv6 error message M\+U\+ST include as much of the I\+Pv6 offending (invoking) packet as possible\textquotesingle{}. In a constrained environment this is not very resource friendly.
+\end{DoxyNote}
+The I\+C\+M\+Pv6 message headers and constants are defined in uip-\/icmp6.\+h.
+
+
+
+\hypertarget{a00075_timers}{}\subsubsection{I\+Pv6 Timers and Processes}\label{a00075_timers}
+The I\+Pv6 stack (like the I\+Pv4 stack) is a Contiki process 
+\begin{DoxyCode}
+PROCESS(tcpip\_process, \textcolor{stringliteral}{"TCP/IP stack"});
+\end{DoxyCode}
+ In addition to the \hyperlink{a00074_mainloop}{periodic timer} that is used by T\+CP, five I\+Pv6 specific timers are attached to this process\+: \begin{DoxyItemize}
+\item The \#uip\+\_\+nd6\+\_\+timer\+\_\+periodic is used for periodic checking of the neighbor discovery structures. \item The \#uip\+\_\+netif\+\_\+timer\+\_\+dad is used to properly paced the Neighbor Solicitation packets sent for Duplicate Address Detection. \item The \#uip\+\_\+netif\+\_\+timer\+\_\+rs is use to delay the sending of Router Solicitations packets in particular during the router discovery process. \item The \#uip\+\_\+netif\+\_\+timer\+\_\+periodic is used to periodically check the validity of the addresses attached to the network interface. \item The \#uip\+\_\+reass\+\_\+timer is used to time-\/out the fragment reassembly process. ~\newline
+ Both \#uip\+\_\+nd6\+\_\+timer\+\_\+periodic and \#uip\+\_\+netif\+\_\+timer\+\_\+periodic run continuously. This could be avoided by using callback timers to handle ND and Netif structures timeouts.\end{DoxyItemize}
+
+
+\hypertarget{a00075_compileflags}{}\subsubsection{Compile time flags and variables}\label{a00075_compileflags}
+This section just lists all I\+Pv6 related compile time flags. Each flag function is documented in this page in the appropriate section. 
+\begin{DoxyCode}
+\textcolor{comment}{/*Boolean flags*/}
+UIP\_CONF\_IPV6        
+UIP\_CONF\_IPV6\_CHECKS
+UIP\_CONF\_IPV6\_QUEUE\_PKT 
+UIP\_CONF\_IPV6\_REASSEMBLY        
+\textcolor{comment}{/*Integer flags*/}
+UIP\_NETIF\_MAX\_ADDRESSES 
+UIP\_ND6\_MAX\_PREFIXES   
+UIP\_ND6\_MAX\_NEIGHBORS   
+UIP\_ND6\_MAX\_DEFROUTER  
+\end{DoxyCode}
+
+
+
+
+\hypertarget{a00075_buffers}{}\subsubsection{I\+Pv6 Buffers}\label{a00075_buffers}
+The I\+Pv6 code uses the same \hyperlink{a00074_memory}{single global buffer} as the I\+Pv4 code. This buffer should be large enough to contain one packet of maximum size, i.\+e., \#\+U\+I\+P\+\_\+\+L\+I\+N\+K\+\_\+\+M\+TU = 1280 bytes. When fragment reassembly is enabled an additional buffer of the same size is used.
+
+The only difference with the I\+Pv4 code is the per neighbor buffering that is available when \#\+U\+I\+P\+\_\+\+C\+O\+N\+F\+\_\+\+Q\+U\+E\+U\+E\+\_\+\+P\+KT is set to 1. This additional buffering is used to queue one packet per neighbor while performing address resolution for it. This is a very costly feature as it increases the R\+AM usage by approximately \#\+U\+I\+P\+\_\+\+N\+D6\+\_\+\+M\+A\+X\+\_\+\+N\+E\+I\+G\+H\+B\+O\+RS $\ast$ \#\+U\+I\+P\+\_\+\+L\+I\+N\+K\+\_\+\+M\+TU bytes.
+
+
+
+\hypertarget{a00075_size}{}\subsubsection{I\+Pv6 Code Size}\label{a00075_size}
+\begin{DoxyNote}{Note}
+We used Atmel\textquotesingle{}s R\+A\+V\+EN boards with the Atmega1284P M\+CU (128\+Kbyte of flash and 16\+Kbyte of S\+R\+AM) to benchmark our code. These numbers are obtained using \textquotesingle{}avr-\/gcc 4.\+2.\+2 (Win\+A\+VR 20071221)\textquotesingle{}. Elf is the output format.
+
+The following compilation flags were used\+: 
+\begin{DoxyCode}
+UIP\_CONF\_IPV6            1      
+UIP\_CONF\_IPV6\_CHECKS     1      
+UIP\_CONF\_IPV6\_QUEUE\_PKT  0      
+UIP\_CONF\_IPV6\_REASSEMBLY 0      
+
+UIP\_NETIF\_MAX\_ADDRESSES 3
+UIP\_ND6\_MAX\_PREFIXES    3
+UIP\_ND6\_MAX\_NEIGHBORS   4
+UIP\_ND6\_MAX\_DEFROUTER   2
+\end{DoxyCode}
+
+\end{DoxyNote}
+The total I\+Pv6 code size is approximately 11.\+5\+Kbyte and the R\+AM usage around 1.\+8\+Kbyte. For an additional N\+E\+I\+G\+H\+B\+OR count 35bytes, 25 for an additional P\+R\+E\+F\+IX, 7 for an additional D\+E\+F\+R\+O\+U\+T\+ER, and 25 for an additional A\+D\+D\+R\+E\+SS.
+
+
+
+\hypertarget{a00075_l2}{}\subsubsection{I\+Pv6 Link Layer dependencies}\label{a00075_l2}
+The I\+Pv6 stack can potentially run on very different link layers (ethernet, 802.\+15.\+4, 802.\+11, etc). The link-\/layer influences the following IP layer objects\+: \begin{DoxyItemize}
+\item \#uip\+\_\+lladdr\+\_\+t, the link-\/layer address type, and its length, \#\+U\+I\+P\+\_\+\+L\+L\+A\+D\+D\+R\+\_\+\+L\+EN. 
+\begin{DoxyCode}
+\textcolor{keyword}{struct }uip\_eth\_addr \{
+  uint8\_t addr[6];
+\};
+\textcolor{keyword}{typedef} \textcolor{keyword}{struct }uip\_eth\_addr uip\_lladdr\_t;
+\textcolor{preprocessor}{#define UIP\_LLADDR\_LEN 6}
+\end{DoxyCode}
+ \item \#uip\+\_\+lladdr, the link-\/layer address of the node. 
+\begin{DoxyCode}
+uip\_lladdr\_t uip\_lladdr = \{\{0x00,0x06,0x98,0x00,0x02,0x32\}\};
+\end{DoxyCode}
+ \item \#\+U\+I\+P\+\_\+\+N\+D6\+\_\+\+O\+P\+T\+\_\+\+L\+L\+A\+O\+\_\+\+L\+EN, the length of the link-\/layer option in the different ND messages\end{DoxyItemize}
+Moreover, \#tcpip\+\_\+output should point to the link-\/layer function used to send a packet. Similarly, the link-\/layer should call \#tcpip\+\_\+input when an IP packet is received.
+
+The code corresponding to the desired link layer is selected at compilation time (see for example the \#\+U\+I\+P\+\_\+\+L\+L\+\_\+802154 flag).
+
+
+
+\hypertarget{a00075_l45}{}\subsubsection{I\+Pv6 interaction with upper layers}\label{a00075_l45}
+The T\+CP and the U\+DP protocol are part of the \hyperlink{a00074}{u\+IP} stack and were left unchanged by the I\+Pv6 implementation. For the application layer, please refer to the \hyperlink{a00074_api}{application program interface}.
+
+
+
+\hypertarget{a00075_compliance}{}\subsubsection{I\+Pv6 compliance}\label{a00075_compliance}
+\hypertarget{a00075_rfc4294}{}\paragraph{I\+Pv6 Node Requirements, R\+F\+C4294}\label{a00075_rfc4294}
+This section describes which parts of R\+F\+C4294 we are compliant with. For each section, we put between brackets the requirement level.~\newline
+When all I\+Pv6 related compile flags are set, our stack is fully compliant with R\+F\+C4294 (i.\+e. we implemement all the M\+U\+S\+Ts), except for M\+LD support and redirect function support.~\newline
+\begin{DoxyNote}{Note}
+R\+F\+C4294 is currently being updated by I\+E\+TF 6man WG. One of the important points for us in the update is that after discussion on the 6man mailing list, I\+P\+Sec support will become a S\+H\+O\+U\+LD (was a M\+U\+ST).~\newline
+ {\bfseries Sub IP layer}~\newline
+ We support R\+F\+C2464 transmission of I\+Pv6 packets over Ethernet~\newline
+We will soon support R\+F\+C4944 transmission of I\+Pv6 packets over 802.\+15.\+4~\newline
+ {\bfseries IP layer}~\newline
+
+\end{DoxyNote}
+\begin{DoxyItemize}
+\item I\+Pv6 R\+F\+C2460 (M\+U\+ST)\+: When the compile flags U\+I\+P\+\_\+\+C\+O\+N\+F\+\_\+\+I\+P\+V6\+\_\+\+C\+H\+E\+C\+KS and U\+I\+P\+\_\+\+C\+O\+N\+F\+\_\+\+R\+E\+A\+S\+S\+E\+M\+B\+LY are set, full support \item Neighbor Discovery R\+F\+C4861 (M\+U\+ST)\+: When the U\+I\+P\+\_\+\+C\+O\+N\+F\+\_\+\+C\+H\+E\+C\+KS and U\+I\+P\+\_\+\+C\+O\+N\+F\+\_\+\+Q\+U\+E\+U\+E\+\_\+\+P\+KT flag are set, full support except redirect function \item Address Autoconfiguration R\+F\+C4862 (M\+U\+ST)\+: When the U\+I\+P\+\_\+\+C\+O\+N\+F\+\_\+\+C\+H\+E\+C\+KS flag is set, full support except sending M\+LD report (see M\+LD) \item Path M\+TU Discovery R\+FC 1981 (S\+H\+O\+U\+LD)\+: no support \item Jumbograms R\+FC 2675 (M\+AY)\+: no support \item I\+C\+M\+Pv6 R\+FC 4443 (M\+U\+ST)\+: full support \item I\+Pv6 addressing architecture R\+FC 3513 (M\+U\+ST)\+: full support \item Privacy extensions for address autoconfiguration R\+FC 3041 (S\+H\+O\+U\+LD)\+: no support. \item Default Address Selection R\+FC 3484 (M\+U\+ST)\+: full support. \item M\+L\+Dv1 (R\+FC 2710) and M\+L\+Dv2 (R\+FC 3810) (conditional M\+U\+ST applying here)\+: no support. As we run I\+Pv6 over Multicast or broadcast capable links (Ethernet or 802.\+15.\+4), the conditional M\+U\+ST applies. We should be able to send an M\+LD report when joining a solicited node multicast group at address configuration time. This will be available in a later release.\end{DoxyItemize}
+{\bfseries D\+NS (R\+FC 1034, 1035, 3152, 3363, 3596) and D\+H\+C\+Pv6 (R\+FC 3315) (conditional M\+U\+ST)}~\newline
+ no support
+
+{\bfseries I\+Pv4 Transition mechanisms R\+FC 4213 (conditional M\+U\+ST)}~\newline
+ no support
+
+{\bfseries Mobile IP R\+FC 3775 (M\+AY / S\+H\+O\+U\+LD)}~\newline
+ no support
+
+{\bfseries I\+P\+Sec R\+FC 4301 4302 4303 2410 2404 2451 3602(M\+U\+S\+Ts) 4305 (S\+H\+O\+U\+LD)}~\newline
+ no support
+
+{\bfseries S\+N\+MP (M\+AY)}~\newline
+ no support\hypertarget{a00075_ipv6ready}{}\paragraph{I\+Pv6 certification through ipv6ready alliance}\label{a00075_ipv6ready}
+I\+Pv6ready is the certification authority for I\+Pv6 implementations (\href{http://www.ipv6ready.org}{\tt http\+://www.\+ipv6ready.\+org}). It delivers two certificates (phase 1 and phase 2).~\newline
+When all the I\+Pv6 related compile flags are set, we pass all the tests for phase 1.~\newline
+We pass all the tests for phase 2 except\+: \begin{DoxyItemize}
+\item the tests related to the redirect function \item the tests related to P\+M\+TU discovery \item test v6\+L\+C1.\+3.\+2C\+: A \char`\"{}bug\char`\"{} in the test suite (fragmentation states are not deleted after test v6\+L\+C1.\+3.\+2B) makes us fail this test unless we run it individually. \item 5.\+1.\+3\+: U\+DP port unreachable (the U\+DP message is too large for our implementation and the U\+DP code does not send any I\+C\+MP error message)\end{DoxyItemize}
+
+
+ 

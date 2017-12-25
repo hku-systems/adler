@@ -1,0 +1,109 @@
+\hypertarget{a00014}{}\subsection{example-\/announcement.\+c}
+
+\begin{DoxyCodeInclude}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * Copyright (c) 2009, Swedish Institute of Computer Science.}
+\textcolor{comment}{ * All rights reserved.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * Redistribution and use in source and binary forms, with or without}
+\textcolor{comment}{ * modification, are permitted provided that the following conditions}
+\textcolor{comment}{ * are met:}
+\textcolor{comment}{ * 1. Redistributions of source code must retain the above copyright}
+\textcolor{comment}{ *    notice, this list of conditions and the following disclaimer.}
+\textcolor{comment}{ * 2. Redistributions in binary form must reproduce the above copyright}
+\textcolor{comment}{ *    notice, this list of conditions and the following disclaimer in the}
+\textcolor{comment}{ *    documentation and/or other materials provided with the distribution.}
+\textcolor{comment}{ * 3. Neither the name of the Institute nor the names of its contributors}
+\textcolor{comment}{ *    may be used to endorse or promote products derived from this software}
+\textcolor{comment}{ *    without specific prior written permission.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND}
+\textcolor{comment}{ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE}
+\textcolor{comment}{ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE}
+\textcolor{comment}{ * ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE}
+\textcolor{comment}{ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL}
+\textcolor{comment}{ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS}
+\textcolor{comment}{ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)}
+\textcolor{comment}{ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT}
+\textcolor{comment}{ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY}
+\textcolor{comment}{ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF}
+\textcolor{comment}{ * SUCH DAMAGE.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * This file is part of the Contiki operating system.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ */}
+\textcolor{comment}{}
+\textcolor{comment}{/**}
+\textcolor{comment}{ * \(\backslash\)file}
+\textcolor{comment}{ *         Example code that uses the annuncement module}
+\textcolor{comment}{ * \(\backslash\)author}
+\textcolor{comment}{ *         Adam Dunkels <adam@sics.se>}
+\textcolor{comment}{ */}
+
+\textcolor{preprocessor}{#include "contiki.h"}
+\textcolor{preprocessor}{#include "net/rime.h"}
+
+\textcolor{preprocessor}{#include "net/rime/announcement.h"}
+
+\textcolor{preprocessor}{#include <stdio.h>}
+
+\textcolor{preprocessor}{#if CONTIKI\_TARGET\_NETSIM}
+\textcolor{preprocessor}{#include "ether.h"}
+\textcolor{preprocessor}{#endif}
+
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+PROCESS(example\_announcement\_process, \textcolor{stringliteral}{"Example announcement process"});
+AUTOSTART\_PROCESSES(&example\_announcement\_process);
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{keyword}{static} \textcolor{keywordtype}{void}
+received\_announcement(\textcolor{keyword}{struct} announcement *a, \textcolor{keyword}{const} rimeaddr\_t *from,
+                      uint16\_t \textcolor{keywordtype}{id}, uint16\_t value)
+\{
+  \textcolor{comment}{/* We set our own announced value to one plus that of our neighbor. */}
+  announcement\_set\_value(a, value + 1);
+
+  printf(\textcolor{stringliteral}{"Got announcement from %d.%d, id %d, value %d, our new value is %d\(\backslash\)n"},
+         from->u8[0], from->u8[1], \textcolor{keywordtype}{id}, value, value + 1);
+
+\textcolor{preprocessor}{#if CONTIKI\_TARGET\_NETSIM}
+  \{
+    \textcolor{keywordtype}{char} buf[8];
+    sprintf(buf, \textcolor{stringliteral}{"%d"}, value + 1);
+    ether\_set\_text(buf);
+  \}
+\textcolor{preprocessor}{#endif}
+
+\}
+\textcolor{keyword}{static} \textcolor{keyword}{struct }announcement example\_announcement;
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+PROCESS\_THREAD(example\_announcement\_process, ev, data)
+\{
+  PROCESS\_EXITHANDLER(announcement\_remove(&example\_announcement);)
+    
+  PROCESS\_BEGIN();
+
+  \textcolor{comment}{/* Register an announcement with ID 128. We provide the}
+\textcolor{comment}{     'received\_announcement' function pointer so that this function}
+\textcolor{comment}{     will be called when a announcements from neighbors are heard. */}
+
+  announcement\_register(&example\_announcement,
+                        128,
+                        received\_announcement);
+
+  \textcolor{comment}{/* Set the lowest eight bytes of the Rime address as the value. */}
+  announcement\_set\_value(&example\_announcement, rimeaddr\_node\_addr.u8[0]);
+
+  \textcolor{keywordflow}{while}(1) \{
+    \textcolor{keyword}{static} \textcolor{keyword}{struct }etimer et;
+
+    \textcolor{comment}{/* Listen for announcements every ten seconds. */}
+    etimer\_set(&et, CLOCK\_SECOND * 10);
+    PROCESS\_WAIT\_EVENT\_UNTIL(etimer\_expired(&et));
+    announcement\_listen(1);
+  \}
+
+  PROCESS\_END();
+\}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\end{DoxyCodeInclude}
+ 

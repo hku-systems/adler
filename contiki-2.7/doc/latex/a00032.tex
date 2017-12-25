@@ -1,0 +1,167 @@
+\hypertarget{a00032}{}\subsection{example-\/runicast.\+c}
+
+\begin{DoxyCodeInclude}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * Copyright (c) 2007, Swedish Institute of Computer Science.}
+\textcolor{comment}{ * All rights reserved.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * Redistribution and use in source and binary forms, with or without}
+\textcolor{comment}{ * modification, are permitted provided that the following conditions}
+\textcolor{comment}{ * are met:}
+\textcolor{comment}{ * 1. Redistributions of source code must retain the above copyright}
+\textcolor{comment}{ *    notice, this list of conditions and the following disclaimer.}
+\textcolor{comment}{ * 2. Redistributions in binary form must reproduce the above copyright}
+\textcolor{comment}{ *    notice, this list of conditions and the following disclaimer in the}
+\textcolor{comment}{ *    documentation and/or other materials provided with the distribution.}
+\textcolor{comment}{ * 3. Neither the name of the Institute nor the names of its contributors}
+\textcolor{comment}{ *    may be used to endorse or promote products derived from this software}
+\textcolor{comment}{ *    without specific prior written permission.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND}
+\textcolor{comment}{ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE}
+\textcolor{comment}{ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE}
+\textcolor{comment}{ * ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE}
+\textcolor{comment}{ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL}
+\textcolor{comment}{ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS}
+\textcolor{comment}{ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)}
+\textcolor{comment}{ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT}
+\textcolor{comment}{ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY}
+\textcolor{comment}{ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF}
+\textcolor{comment}{ * SUCH DAMAGE.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * This file is part of the Contiki operating system.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ */}
+\textcolor{comment}{}
+\textcolor{comment}{/**}
+\textcolor{comment}{ * \(\backslash\)file}
+\textcolor{comment}{ *         Reliable single-hop unicast example}
+\textcolor{comment}{ * \(\backslash\)author}
+\textcolor{comment}{ *         Adam Dunkels <adam@sics.se>}
+\textcolor{comment}{ */}
+
+\textcolor{preprocessor}{#include <stdio.h>}
+
+\textcolor{preprocessor}{#include "contiki.h"}
+\textcolor{preprocessor}{#include "net/rime.h"}
+
+\textcolor{preprocessor}{#include "lib/list.h"}
+\textcolor{preprocessor}{#include "lib/memb.h"}
+
+\textcolor{preprocessor}{#include "dev/button-sensor.h"}
+\textcolor{preprocessor}{#include "dev/leds.h"}
+
+\textcolor{preprocessor}{#define MAX\_RETRANSMISSIONS 4}
+\textcolor{preprocessor}{#define NUM\_HISTORY\_ENTRIES 4}
+
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+PROCESS(test\_runicast\_process, \textcolor{stringliteral}{"runicast test"});
+AUTOSTART\_PROCESSES(&test\_runicast\_process);
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{comment}{/* OPTIONAL: Sender history.}
+\textcolor{comment}{ * Detects duplicate callbacks at receiving nodes.}
+\textcolor{comment}{ * Duplicates appear when ack messages are lost. */}
+\textcolor{keyword}{struct }history\_entry \{
+  \textcolor{keyword}{struct }history\_entry *next;
+  rimeaddr\_t addr;
+  uint8\_t seq;
+\};
+LIST(history\_table);
+MEMB(history\_mem, \textcolor{keyword}{struct} history\_entry, NUM\_HISTORY\_ENTRIES);
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{keyword}{static} \textcolor{keywordtype}{void}
+recv\_runicast(\textcolor{keyword}{struct} runicast\_conn *c, \textcolor{keyword}{const} rimeaddr\_t *from, uint8\_t seqno)
+\{
+  \textcolor{comment}{/* OPTIONAL: Sender history */}
+  \textcolor{keyword}{struct }history\_entry *e = NULL;
+  \textcolor{keywordflow}{for}(e = list\_head(history\_table); e != NULL; e = e->next) \{
+    \textcolor{keywordflow}{if}(rimeaddr\_cmp(&e->addr, from)) \{
+      \textcolor{keywordflow}{break};
+    \}
+  \}
+  \textcolor{keywordflow}{if}(e == NULL) \{
+    \textcolor{comment}{/* Create new history entry */}
+    e = memb\_alloc(&history\_mem);
+    \textcolor{keywordflow}{if}(e == NULL) \{
+      e = list\_chop(history\_table); \textcolor{comment}{/* Remove oldest at full history */}
+    \}
+    rimeaddr\_copy(&e->addr, from);
+    e->seq = seqno;
+    list\_push(history\_table, e);
+  \} \textcolor{keywordflow}{else} \{
+    \textcolor{comment}{/* Detect duplicate callback */}
+    \textcolor{keywordflow}{if}(e->seq == seqno) \{
+      printf(\textcolor{stringliteral}{"runicast message received from %d.%d, seqno %d (DUPLICATE)\(\backslash\)n"},
+             from->u8[0], from->u8[1], seqno);
+      \textcolor{keywordflow}{return};
+    \}
+    \textcolor{comment}{/* Update existing history entry */}
+    e->seq = seqno;
+  \}
+
+  printf(\textcolor{stringliteral}{"runicast message received from %d.%d, seqno %d\(\backslash\)n"},
+         from->u8[0], from->u8[1], seqno);
+\}
+\textcolor{keyword}{static} \textcolor{keywordtype}{void}
+sent\_runicast(\textcolor{keyword}{struct} runicast\_conn *c, \textcolor{keyword}{const} rimeaddr\_t *to, uint8\_t retransmissions)
+\{
+  printf(\textcolor{stringliteral}{"runicast message sent to %d.%d, retransmissions %d\(\backslash\)n"},
+         to->u8[0], to->u8[1], retransmissions);
+\}
+\textcolor{keyword}{static} \textcolor{keywordtype}{void}
+timedout\_runicast(\textcolor{keyword}{struct} runicast\_conn *c, \textcolor{keyword}{const} rimeaddr\_t *to, uint8\_t retransmissions)
+\{
+  printf(\textcolor{stringliteral}{"runicast message timed out when sending to %d.%d, retransmissions %d\(\backslash\)n"},
+         to->u8[0], to->u8[1], retransmissions);
+\}
+\textcolor{keyword}{static} \textcolor{keyword}{const} \textcolor{keyword}{struct }runicast\_callbacks runicast\_callbacks = \{recv\_runicast,
+                                                             sent\_runicast,
+                                                             timedout\_runicast\};
+\textcolor{keyword}{static} \textcolor{keyword}{struct }runicast\_conn runicast;
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+PROCESS\_THREAD(test\_runicast\_process, ev, data)
+\{
+  PROCESS\_EXITHANDLER(runicast\_close(&runicast);)
+
+  PROCESS\_BEGIN();
+
+  runicast\_open(&runicast, 144, &runicast\_callbacks);
+
+  \textcolor{comment}{/* OPTIONAL: Sender history */}
+  list\_init(history\_table);
+  memb\_init(&history\_mem);
+
+  \textcolor{comment}{/* Receiver node: do nothing */}
+  \textcolor{keywordflow}{if}(rimeaddr\_node\_addr.u8[0] == 1 &&
+     rimeaddr\_node\_addr.u8[1] == 0) \{
+    PROCESS\_WAIT\_EVENT\_UNTIL(0);
+  \}
+
+  \textcolor{keywordflow}{while}(1) \{
+    \textcolor{keyword}{static} \textcolor{keyword}{struct }etimer et;
+
+    etimer\_set(&et, 10*CLOCK\_SECOND);
+    PROCESS\_WAIT\_EVENT\_UNTIL(etimer\_expired(&et));
+
+    \textcolor{keywordflow}{if}(!runicast\_is\_transmitting(&runicast)) \{
+      rimeaddr\_t recv;
+
+      packetbuf\_copyfrom(\textcolor{stringliteral}{"Hello"}, 5);
+      recv.u8[0] = 1;
+      recv.u8[1] = 0;
+
+      printf(\textcolor{stringliteral}{"%u.%u: sending runicast to address %u.%u\(\backslash\)n"},
+             rimeaddr\_node\_addr.u8[0],
+             rimeaddr\_node\_addr.u8[1],
+             recv.u8[0],
+             recv.u8[1]);
+
+      runicast\_send(&runicast, &recv, MAX\_RETRANSMISSIONS);
+    \}
+  \}
+
+  PROCESS\_END();
+\}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\end{DoxyCodeInclude}
+ 

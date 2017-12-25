@@ -1,0 +1,35 @@
+\hypertarget{a00006}{}\subsection{example-\/pollhandler.\+c}
+
+\begin{DoxyCodeInclude}
+\textcolor{preprocessor}{#include "contiki.h"}
+
+PROCESS(example\_pollhandler, \textcolor{stringliteral}{"Pollhandler example"});
+
+\textcolor{keyword}{static} \textcolor{keywordtype}{void}
+exithandler(\textcolor{keywordtype}{void})
+\{
+  printf(\textcolor{stringliteral}{"Process exited\(\backslash\)n"});
+\}
+
+\textcolor{keyword}{static} \textcolor{keywordtype}{void}
+pollhandler(\textcolor{keywordtype}{void})
+\{
+  printf(\textcolor{stringliteral}{"Process polled\(\backslash\)n"});
+\}
+
+PROCESS\_THREAD(example\_pollhandler, ev, data)
+\{
+  
+  PROCESS\_POLLHANDLER(pollhandler());
+  PROCESS\_EXITHANDLER(exithandler());
+
+  PROCESS\_BEGIN();
+
+  \textcolor{keywordflow}{while}(1) \{
+    PROCESS\_WAIT\_EVENT();
+  \}
+  
+  PROCESS\_END();
+\}
+\end{DoxyCodeInclude}
+ 

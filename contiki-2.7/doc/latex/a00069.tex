@@ -1,0 +1,77 @@
+\hypertarget{a00069}{}\subsection{S\+I\+C\+S\+Lo\+W\+M\+AC Implementation}
+\label{a00069}\index{S\+I\+C\+S\+Lo\+W\+M\+A\+C Implementation@{S\+I\+C\+S\+Lo\+W\+M\+A\+C Implementation}}
+\hypertarget{a00069_macintro}{}\subsubsection{1. Introduction}\label{a00069_macintro}
+The phase1 M\+AC implemented to support the I\+Pv6/6\+Lo\+W\+P\+AN stack within the Contiki project is a light weight yet adequate beginning. This phase supports point to point data connectivity between a router device and an end device. The router is the RZ U\+SB stick from the A\+T\+A\+V\+R\+R\+Z\+R\+A\+V\+EN kit. The end node is the A\+VR Raven from the A\+T\+A\+V\+R\+R\+Z\+R\+A\+V\+EN kit. The picture below shows the complete A\+T\+A\+V\+R\+R\+Z\+R\+A\+V\+EN kit. \begin{DoxyVerb}\image html raven.png
+\end{DoxyVerb}
+
+
+The next phases will implement a commissioning concept including scan, and beacon generation. These kinds of primitives will allow dynamic network formation. Additionally, routing and low power/sleep will be implemented in following phases.\hypertarget{a00069_macprereqs}{}\subsubsection{2. Prerequisites}\label{a00069_macprereqs}
+See the \hyperlink{a00072}{Running Contiki with u\+I\+Pv6 and S\+I\+C\+Slowpan support on Atmel R\+A\+V\+EN hardware} for required systems setup configuration.\hypertarget{a00069_macoverview}{}\subsubsection{3. M\+A\+C Overview}\label{a00069_macoverview}
+This M\+AC follows the recommendations of R\+F\+C4944 with respect to data frames and acknowledgements (i.\+e. all data frames are acknowledged). At the time of this writing (phase 1) beacons (frames) and association events are not implemented. Additionally, data frames always carry both source and destination addresses. P\+A\+N\+ID compression (intra-\/pan) is not used so both source and destination P\+A\+N\+ID\textquotesingle{}s are present in the frame.
+
+The S\+I\+C\+S\+Lo\+W\+M\+AC supports the I\+E\+EE 802.\+15.\+4 Data Request primitive and the Data Request Indication primitive. The data request primitive constructs a {\bfseries proper} 802.\+15.\+4 frame for transmission over the air while the data indication parses a received frame for processing in higher layers (6\+Lo\+W\+P\+AN). The source code for the mac can be found in the sicslowmac.\mbox{[}c,h\mbox{]} files.
+
+To assemble a frame a M\+AC header is constructed with certain presumptions\+:
+\begin{DoxyEnumerate}
+\item Long source and destination addresses are used.
+\item A hard coded P\+A\+N\+ID is used.
+\item A hard coded channel is used.
+\item Acknowledgements are used.
+\item Up to 3 auto retry attempts are used.
+\end{DoxyEnumerate}
+
+These and other variables are defined in mac.\+h.
+
+Given this data and the output of the 6\+Lo\+W\+P\+AN function, the M\+AC can construct the data frame and the Frame Control Field for transmission.
+
+An I\+E\+EE 802.\+15.\+4 M\+AC data frame consists of the fields shown below\+: \begin{DoxyVerb}\image html dataframe.png
+\end{DoxyVerb}
+
+
+The Frame Control Field (F\+CF) consist of the fields shown below\+: \begin{DoxyVerb}\image html fcf.jpg
+
+\note The MAC address of each node is expected to be stored in EEPROM and
+\end{DoxyVerb}
+ retrieved during the initialization process immediately after power on.\hypertarget{a00069_macrelationship}{}\subsubsection{4. 6\+Lo\+W\+P\+A\+N, M\+A\+C and Radio Relationship}\label{a00069_macrelationship}
+The output function of the 6\+Lo\+W\+P\+AN layer (sicslowpan.\+c) is the input function to the M\+AC (sicslowmac.\+c). The output function of the M\+AC is the input function of the radio (radio.\+c). When the radio receives a frame over the air it processes it in its T\+R\+X\+\_\+\+E\+ND event function. If the frame passes address and C\+RC filtering it is queued in the M\+AC event queue. Subsequently, when the M\+AC task is processed, the received frame is parsed and handed off to the 6\+Lo\+W\+P\+AN layer via its input function. These relationships are depicted below\+: \begin{DoxyVerb}\image html layers.png
+\end{DoxyVerb}
+\hypertarget{a00069_maccode}{}\subsubsection{5. Source Code Location}\label{a00069_maccode}
+The source code for the M\+AC, Radio and support functions is located in the path\+:
+\begin{DoxyItemize}
+\item \textbackslash{}cpu\textbackslash{}avr\textbackslash{}radio
+\begin{DoxyItemize}
+\item \textbackslash{}rf230
+\item \textbackslash{}mac
+\item \textbackslash{}ieee-\/manager
+\end{DoxyItemize}
+\end{DoxyItemize}
+\begin{DoxyEnumerate}
+\item The \textbackslash{}rf230 folder contains the low level H\+AL drivers to access and control the radio as well as the low level frame formatting and parsing functions.
+\item The \textbackslash{}mac folder contains the M\+AC layer code, the generic M\+AC initialization functions and the defines mentioned in section 3.
+\item The \textbackslash{}ieee-\/manager folder contains the access functions for various P\+IB variables and radio functions such as channel setting.
+\end{DoxyEnumerate}
+
+The source code for the Raven platforms is located in the path\+:
+\begin{DoxyItemize}
+\item \textbackslash{}platform
+\begin{DoxyItemize}
+\item \textbackslash{}avr-\/raven
+\item \textbackslash{}avr-\/ravenlcd
+\item \textbackslash{}avr-\/ravenusb
+\end{DoxyItemize}
+\end{DoxyItemize}
+\begin{DoxyEnumerate}
+\item The \textbackslash{}avr-\/raven folder contains the source code to initialize and start the raven board.
+\item The \textbackslash{}avr-\/ravenlcd folder contains the complete source code to initialize and start the A\+Tmega3209P on raven board in a user interface capacity. See the Doxygen generated documentation for more information.
+\item The \textbackslash{}avr-\/ravenusb folder contains the source code to initialize and start the raven U\+SB stick as a network interface on either Linux or Windows platforms. Note that appropriate drivers are located in the path\+:
+\begin{DoxyItemize}
+\item \textbackslash{}cpu\textbackslash{}avr\textbackslash{}dev\textbackslash{}usb\textbackslash{}I\+NF
+\end{DoxyItemize}
+\end{DoxyEnumerate}\hypertarget{a00069_macavrstudio}{}\subsubsection{6. A\+V\+R Studio Project Location}\label{a00069_macavrstudio}
+There are two projects that utilize the Logo Certified I\+Pv6 and 6\+Lo\+W\+P\+AN layers contributed to the Contiki project by Cisco. These are ping-\/ipv6and webserver-\/ipv6 applications. They are located in the following paths\+:
+\begin{DoxyItemize}
+\item \textbackslash{}examples\textbackslash{}webserver-\/ipv6 and
+\item \textbackslash{}examples\textbackslash{}ping-\/ipv6
+\end{DoxyItemize}
+
+The ping-\/ipv6 application will allow the U\+SB stick to ping the Raven board while the webserver-\/ipv6 application will allow the raven board to serve a web page. When the ravenlcd-\/3290 application is programmed into the A\+Tmega3290P on the Raven board, the Raven board can ping the U\+SB stick and it can periodically update the temperature in the appropriate web page when served. 

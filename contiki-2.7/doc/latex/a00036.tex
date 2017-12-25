@@ -1,0 +1,94 @@
+\hypertarget{a00036}{}\subsection{example-\/unicast.\+c}
+
+\begin{DoxyCodeInclude}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * Copyright (c) 2007, Swedish Institute of Computer Science.}
+\textcolor{comment}{ * All rights reserved.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * Redistribution and use in source and binary forms, with or without}
+\textcolor{comment}{ * modification, are permitted provided that the following conditions}
+\textcolor{comment}{ * are met:}
+\textcolor{comment}{ * 1. Redistributions of source code must retain the above copyright}
+\textcolor{comment}{ *    notice, this list of conditions and the following disclaimer.}
+\textcolor{comment}{ * 2. Redistributions in binary form must reproduce the above copyright}
+\textcolor{comment}{ *    notice, this list of conditions and the following disclaimer in the}
+\textcolor{comment}{ *    documentation and/or other materials provided with the distribution.}
+\textcolor{comment}{ * 3. Neither the name of the Institute nor the names of its contributors}
+\textcolor{comment}{ *    may be used to endorse or promote products derived from this software}
+\textcolor{comment}{ *    without specific prior written permission.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND}
+\textcolor{comment}{ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE}
+\textcolor{comment}{ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE}
+\textcolor{comment}{ * ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE}
+\textcolor{comment}{ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL}
+\textcolor{comment}{ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS}
+\textcolor{comment}{ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)}
+\textcolor{comment}{ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT}
+\textcolor{comment}{ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY}
+\textcolor{comment}{ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF}
+\textcolor{comment}{ * SUCH DAMAGE.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * This file is part of the Contiki operating system.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ */}
+\textcolor{comment}{}
+\textcolor{comment}{/**}
+\textcolor{comment}{ * \(\backslash\)file}
+\textcolor{comment}{ *         Best-effort single-hop unicast example}
+\textcolor{comment}{ * \(\backslash\)author}
+\textcolor{comment}{ *         Adam Dunkels <adam@sics.se>}
+\textcolor{comment}{ */}
+
+\textcolor{preprocessor}{#include "contiki.h"}
+\textcolor{preprocessor}{#include "net/rime.h"}
+
+\textcolor{preprocessor}{#include "dev/button-sensor.h"}
+
+\textcolor{preprocessor}{#include "dev/leds.h"}
+
+\textcolor{preprocessor}{#include <stdio.h>}
+
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+PROCESS(example\_unicast\_process, \textcolor{stringliteral}{"Example unicast"});
+AUTOSTART\_PROCESSES(&example\_unicast\_process);
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{keyword}{static} \textcolor{keywordtype}{void}
+recv\_uc(\textcolor{keyword}{struct} unicast\_conn *c, \textcolor{keyword}{const} rimeaddr\_t *from)
+\{
+  printf(\textcolor{stringliteral}{"unicast message received from %d.%d\(\backslash\)n"},
+         from->u8[0], from->u8[1]);
+\}
+\textcolor{keyword}{static} \textcolor{keyword}{const} \textcolor{keyword}{struct }unicast\_callbacks unicast\_callbacks = \{recv\_uc\};
+\textcolor{keyword}{static} \textcolor{keyword}{struct }unicast\_conn uc;
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+PROCESS\_THREAD(example\_unicast\_process, ev, data)
+\{
+  PROCESS\_EXITHANDLER(unicast\_close(&uc);)
+    
+  PROCESS\_BEGIN();
+
+  unicast\_open(&uc, 146, &unicast\_callbacks);
+
+  \textcolor{keywordflow}{while}(1) \{
+    \textcolor{keyword}{static} \textcolor{keyword}{struct }etimer et;
+    rimeaddr\_t addr;
+    
+    etimer\_set(&et, CLOCK\_SECOND);
+    
+    PROCESS\_WAIT\_EVENT\_UNTIL(etimer\_expired(&et));
+
+    packetbuf\_copyfrom(\textcolor{stringliteral}{"Hello"}, 5);
+    addr.u8[0] = 1;
+    addr.u8[1] = 0;
+    \textcolor{keywordflow}{if}(!rimeaddr\_cmp(&addr, &rimeaddr\_node\_addr)) \{
+      unicast\_send(&uc, &addr);
+    \}
+
+  \}
+
+  PROCESS\_END();
+\}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\end{DoxyCodeInclude}
+ 

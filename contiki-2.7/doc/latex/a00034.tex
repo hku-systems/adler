@@ -1,0 +1,85 @@
+\hypertarget{a00034}{}\subsection{example-\/trickle.\+c}
+
+\begin{DoxyCodeInclude}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * Copyright (c) 2007, Swedish Institute of Computer Science.}
+\textcolor{comment}{ * All rights reserved.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * Redistribution and use in source and binary forms, with or without}
+\textcolor{comment}{ * modification, are permitted provided that the following conditions}
+\textcolor{comment}{ * are met:}
+\textcolor{comment}{ * 1. Redistributions of source code must retain the above copyright}
+\textcolor{comment}{ *    notice, this list of conditions and the following disclaimer.}
+\textcolor{comment}{ * 2. Redistributions in binary form must reproduce the above copyright}
+\textcolor{comment}{ *    notice, this list of conditions and the following disclaimer in the}
+\textcolor{comment}{ *    documentation and/or other materials provided with the distribution.}
+\textcolor{comment}{ * 3. Neither the name of the Institute nor the names of its contributors}
+\textcolor{comment}{ *    may be used to endorse or promote products derived from this software}
+\textcolor{comment}{ *    without specific prior written permission.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND}
+\textcolor{comment}{ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE}
+\textcolor{comment}{ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE}
+\textcolor{comment}{ * ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE}
+\textcolor{comment}{ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL}
+\textcolor{comment}{ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS}
+\textcolor{comment}{ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)}
+\textcolor{comment}{ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT}
+\textcolor{comment}{ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY}
+\textcolor{comment}{ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF}
+\textcolor{comment}{ * SUCH DAMAGE.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * This file is part of the Contiki operating system.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ */}
+\textcolor{comment}{}
+\textcolor{comment}{/**}
+\textcolor{comment}{ * \(\backslash\)file}
+\textcolor{comment}{ *         Example for using the trickle code in Rime}
+\textcolor{comment}{ * \(\backslash\)author}
+\textcolor{comment}{ *         Adam Dunkels <adam@sics.se>}
+\textcolor{comment}{ */}
+
+\textcolor{preprocessor}{#include "contiki.h"}
+\textcolor{preprocessor}{#include "net/rime/trickle.h"}
+
+\textcolor{preprocessor}{#include "dev/button-sensor.h"}
+
+\textcolor{preprocessor}{#include "dev/leds.h"}
+
+\textcolor{preprocessor}{#include <stdio.h>}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+PROCESS(example\_trickle\_process, \textcolor{stringliteral}{"Trickle example"});
+AUTOSTART\_PROCESSES(&example\_trickle\_process);
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{keyword}{static} \textcolor{keywordtype}{void}
+trickle\_recv(\textcolor{keyword}{struct} trickle\_conn *c)
+\{
+  printf(\textcolor{stringliteral}{"%d.%d: trickle message received '%s'\(\backslash\)n"},
+         rimeaddr\_node\_addr.u8[0], rimeaddr\_node\_addr.u8[1],
+         (\textcolor{keywordtype}{char} *)packetbuf\_dataptr());
+\}
+\textcolor{keyword}{const} \textcolor{keyword}{static} \textcolor{keyword}{struct }trickle\_callbacks trickle\_call = \{trickle\_recv\};
+\textcolor{keyword}{static} \textcolor{keyword}{struct }trickle\_conn trickle;
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+PROCESS\_THREAD(example\_trickle\_process, ev, data)
+\{
+  PROCESS\_EXITHANDLER(trickle\_close(&trickle);)
+  PROCESS\_BEGIN();
+
+  trickle\_open(&trickle, CLOCK\_SECOND, 145, &trickle\_call);
+  SENSORS\_ACTIVATE(button\_sensor);
+
+  \textcolor{keywordflow}{while}(1) \{
+    PROCESS\_WAIT\_EVENT\_UNTIL(ev == sensors\_event &&
+                             data == &button\_sensor);
+
+    packetbuf\_copyfrom(\textcolor{stringliteral}{"Hello, world"}, 13);
+    trickle\_send(&trickle);
+
+  \}
+  PROCESS\_END();
+\}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\end{DoxyCodeInclude}
+ 

@@ -1,0 +1,11 @@
+# $Id$
+CONTIKI_TARGET_SOURCEFILES += contiki-ez240-platform.c \
+	sht11.c sht11-sensor.c battery-sensor.c \
+	button-sensor.c radio-sensor.c tsl2561.c tsl2561-sensor.c light-sensor.c
+
+ifndef SMALL
+SMALL=1
+endif
+
+include $(CONTIKI)/platform/ez240/Makefile.common
+

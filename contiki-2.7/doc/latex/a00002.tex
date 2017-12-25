@@ -1,0 +1,131 @@
+\hypertarget{a00002}{}\subsection{code-\/style.\+c}
+
+\begin{DoxyCodeInclude}
+\textcolor{comment}{/**}
+\textcolor{comment}{ * \(\backslash\)defgroup coding-style Coding style}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * This is how a Doxygen module is documented - start with a \(\backslash\)defgroup}
+\textcolor{comment}{ * Doxygen keyword at the beginning of the file to define a module,}
+\textcolor{comment}{ * and use the \(\backslash\)addtogroup Doxygen keyword in all other files that}
+\textcolor{comment}{ * belong to the same module. Typically, the \(\backslash\)defgroup is placed in}
+\textcolor{comment}{ * the .h file and \(\backslash\)addtogroup in the .c file.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * The Contiki source code contains a GNU Indent script that can}
+\textcolor{comment}{ * automatically format a C code file to match the Contiki code}
+\textcolor{comment}{ * style. The Indent configuration is in contiki/tools/indent.pro and}
+\textcolor{comment}{ * a small helper script is in contiki/tools/contiki-indent. Note that}
+\textcolor{comment}{ * this is not a silver bullet - for example, the script does not add}
+\textcolor{comment}{ * separators between functions, nor does it format comments}
+\textcolor{comment}{ * correctly. The script should be treated as an aid in formatting}
+\textcolor{comment}{ * code: first run the formatter on the source code, then manually}
+\textcolor{comment}{ * edit the file.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * @\{}
+\textcolor{comment}{ */}
+\textcolor{comment}{}
+\textcolor{comment}{/**}
+\textcolor{comment}{ * \(\backslash\)file}
+\textcolor{comment}{ *         A brief description of what this file is.}
+\textcolor{comment}{ * \(\backslash\)author}
+\textcolor{comment}{ *         Adam Dunkels <adam@dunkels.com>}
+\textcolor{comment}{ *}
+\textcolor{comment}{ *         Every file that is part of a documented module has to have}
+\textcolor{comment}{ *         a \(\backslash\)file block, else it will not show up in the Doxygen}
+\textcolor{comment}{ *         "Modules" * section.}
+\textcolor{comment}{ */}
+
+\textcolor{comment}{/* Single line comments look like this. */}
+
+\textcolor{comment}{/*}
+\textcolor{comment}{ * Multi-line comments look like this. Comments should prefferably be}
+\textcolor{comment}{ * full sentences, filled to look like real paragraphs.}
+\textcolor{comment}{ */}
+
+\textcolor{preprocessor}{#include "contiki.h"}
+
+\textcolor{comment}{/*}
+\textcolor{comment}{ * Make sure that non-global variables are all maked with the static}
+\textcolor{comment}{ * keyword. This keeps the size of the symbol table down.}
+\textcolor{comment}{ */}
+\textcolor{keyword}{static} \textcolor{keywordtype}{int} flag;
+
+\textcolor{comment}{/*}
+\textcolor{comment}{ * All variables and functions that are visible outside of the file}
+\textcolor{comment}{ * should have the module name prepended to them. This makes it easy}
+\textcolor{comment}{ * to know where to look for function and variable definitions.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * Put dividers (a single-line comment consisting only of dashes)}
+\textcolor{comment}{ * between functions.}
+\textcolor{comment}{ */}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}\textcolor{comment}{}
+\textcolor{comment}{/**}
+\textcolor{comment}{ * \(\backslash\)brief      Use Doxygen documentation for functions.}
+\textcolor{comment}{ * \(\backslash\)param c    Briefly describe all parameters.}
+\textcolor{comment}{ * \(\backslash\)return     Briefly describe the return value.}
+\textcolor{comment}{ * \(\backslash\)retval 0   Functions that return a few specified values}
+\textcolor{comment}{ * \(\backslash\)retval 1   can use the \(\backslash\)retval keyword instead of \(\backslash\)return.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ *             Put a longer description of what the function does}
+\textcolor{comment}{ *             after the preamble of Doxygen keywords.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ *             This template should always be used to document}
+\textcolor{comment}{ *             functions. The text following the introduction is used}
+\textcolor{comment}{ *             as the function's documentation.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ *             Function prototypes have the return type on one line,}
+\textcolor{comment}{ *             the name and arguments on one line (with no space}
+\textcolor{comment}{ *             between the name and the first parenthesis), followed}
+\textcolor{comment}{ *             by a single curly bracket on its own line.}
+\textcolor{comment}{ */}
+\textcolor{keywordtype}{void}
+\hyperlink{a00077_gaf4091e5d6984567763b6f5b792d2407f}{code\_style\_example\_function}(\textcolor{keywordtype}{void})
+\{
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * Local variables should always be declared at the start of the}
+\textcolor{comment}{   * function.}
+\textcolor{comment}{   */}
+  \textcolor{keywordtype}{int} i;                   \textcolor{comment}{/* Use short variable names for loop}
+\textcolor{comment}{                              counters. */}
+
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * There should be no space between keywords and the first}
+\textcolor{comment}{   * parenthesis. There should be spaces around binary operators, no}
+\textcolor{comment}{   * spaces between a unary operator and its operand.}
+\textcolor{comment}{   *}
+\textcolor{comment}{   * Curly brackets following for(), if(), do, and case() statements}
+\textcolor{comment}{   * should follow the statement on the same line.}
+\textcolor{comment}{   */}
+  \textcolor{keywordflow}{for}(i = 0; i < 10; ++i) \{
+    \textcolor{comment}{/*}
+\textcolor{comment}{     * Always use full blocks (curly brackets) after if(), for(), and}
+\textcolor{comment}{     * while() statements, even though the statement is a single line}
+\textcolor{comment}{     * of code. This makes the code easier to read and modifications}
+\textcolor{comment}{     * are less error prone.}
+\textcolor{comment}{     */}
+    \textcolor{keywordflow}{if}(i == c) \{
+      \textcolor{keywordflow}{return} c;           \textcolor{comment}{/* No parentesis around return values. */}
+    \} \textcolor{keywordflow}{else} \{              \textcolor{comment}{/* The else keyword is placed inbetween}
+\textcolor{comment}{                             curly brackers, always on its own line. */}
+      c++;
+    \}
+  \}
+\}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * Static (non-global) functions do not need Doxygen comments. The}
+\textcolor{comment}{ * name should not be prepended with the module name - doing so would}
+\textcolor{comment}{ * create confusion.}
+\textcolor{comment}{ */}
+\textcolor{keyword}{static} \textcolor{keywordtype}{void}
+an\_example\_function(\textcolor{keywordtype}{void})
+\{
+
+\}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+
+\textcolor{comment}{/* The following stuff ends the \(\backslash\)defgroup block at the beginning of}
+\textcolor{comment}{   the file: */}
+\textcolor{comment}{}
+\textcolor{comment}{/** @\} */}
+\end{DoxyCodeInclude}
+ 

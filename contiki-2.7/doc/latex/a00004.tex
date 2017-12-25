@@ -1,0 +1,94 @@
+\hypertarget{a00004}{}\subsection{example-\/program.\+c}
+
+\begin{DoxyCodeInclude}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * This file contains an example of how a Contiki program looks.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * The program opens a UDP broadcast connection and sends one packet}
+\textcolor{comment}{ * every second.}
+\textcolor{comment}{ */}
+
+\textcolor{preprocessor}{#include "contiki.h"}
+\textcolor{preprocessor}{#include "contiki-net.h"}
+
+\textcolor{comment}{/*}
+\textcolor{comment}{ * All Contiki programs must have a process, and we declare it here.}
+\textcolor{comment}{ */}
+PROCESS(example\_program\_process, \textcolor{stringliteral}{"Example process"});
+
+\textcolor{comment}{/*}
+\textcolor{comment}{ * To make the program send a packet once every second, we use an}
+\textcolor{comment}{ * event timer (etimer).}
+\textcolor{comment}{ */}
+\textcolor{keyword}{static} \textcolor{keyword}{struct }etimer timer;
+
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * Here we implement the process. The process is run whenever an event}
+\textcolor{comment}{ * occurs, and the parameters "ev" and "data" will we set to the event}
+\textcolor{comment}{ * type and any data that may be passed along with the event.}
+\textcolor{comment}{ */}
+PROCESS\_THREAD(example\_program\_process, ev, data)
+\{
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * Declare the UDP connection. Note that this *MUST* be declared}
+\textcolor{comment}{   * static, or otherwise the contents may be destroyed. The reason}
+\textcolor{comment}{   * for this is that the process runs as a protothread, and}
+\textcolor{comment}{   * protothreads do not support stack variables.}
+\textcolor{comment}{   */}
+  \textcolor{keyword}{static} \textcolor{keyword}{struct }uip\_udp\_conn *c;
+  
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * A process thread starts with PROCESS\_BEGIN() and ends with}
+\textcolor{comment}{   * PROCESS\_END().}
+\textcolor{comment}{   */}  
+  PROCESS\_BEGIN();
+
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * We create the UDP connection to port 4321. We don't want to}
+\textcolor{comment}{   * attach any special data to the connection, so we pass it a NULL}
+\textcolor{comment}{   * parameter.}
+\textcolor{comment}{   */}
+  c = udp\_broadcast\_new(UIP\_HTONS(4321), NULL);
+  
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * Loop for ever.}
+\textcolor{comment}{   */}
+  \textcolor{keywordflow}{while}(1) \{
+
+    \textcolor{comment}{/*}
+\textcolor{comment}{     * We set a timer that wakes us up once every second. }
+\textcolor{comment}{     */}
+    etimer\_set(&timer, CLOCK\_SECOND);
+    PROCESS\_WAIT\_EVENT\_UNTIL(etimer\_expired(&timer));
+
+    \textcolor{comment}{/*}
+\textcolor{comment}{     * Now, this is a the tricky bit: in order for us to send a UDP}
+\textcolor{comment}{     * packet, we must call upon the uIP TCP/IP stack process to call}
+\textcolor{comment}{     * us. (uIP works under the Hollywood principle: "Don't call us,}
+\textcolor{comment}{     * we'll call you".) We use the function tcpip\_poll\_udp() to tell}
+\textcolor{comment}{     * uIP to call us, and then we wait for the uIP event to come.}
+\textcolor{comment}{     */}
+    tcpip\_poll\_udp(c);
+    PROCESS\_WAIT\_EVENT\_UNTIL(ev == tcpip\_event);
+
+    \textcolor{comment}{/*}
+\textcolor{comment}{     * We can now send our packet.}
+\textcolor{comment}{     */}
+    uip\_send(\textcolor{stringliteral}{"Hello"}, 5);
+
+    \textcolor{comment}{/*}
+\textcolor{comment}{     * We're done now, so we'll just loop again.}
+\textcolor{comment}{     */}
+  \}
+
+  \textcolor{comment}{/*}
+\textcolor{comment}{   * The process ends here. Even though our program sits is a while(1)}
+\textcolor{comment}{   * loop, we must put the PROCESS\_END() at the end of the process, or}
+\textcolor{comment}{   * else the program won't compile.}
+\textcolor{comment}{   */}
+  PROCESS\_END();
+\}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\end{DoxyCodeInclude}
+ 

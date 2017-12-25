@@ -1,0 +1,157 @@
+\hypertarget{a00024}{}\subsection{example-\/rucb.\+c}
+
+\begin{DoxyCodeInclude}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * Copyright (c) 2007, Swedish Institute of Computer Science.}
+\textcolor{comment}{ * All rights reserved.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * Redistribution and use in source and binary forms, with or without}
+\textcolor{comment}{ * modification, are permitted provided that the following conditions}
+\textcolor{comment}{ * are met:}
+\textcolor{comment}{ * 1. Redistributions of source code must retain the above copyright}
+\textcolor{comment}{ *    notice, this list of conditions and the following disclaimer.}
+\textcolor{comment}{ * 2. Redistributions in binary form must reproduce the above copyright}
+\textcolor{comment}{ *    notice, this list of conditions and the following disclaimer in the}
+\textcolor{comment}{ *    documentation and/or other materials provided with the distribution.}
+\textcolor{comment}{ * 3. Neither the name of the Institute nor the names of its contributors}
+\textcolor{comment}{ *    may be used to endorse or promote products derived from this software}
+\textcolor{comment}{ *    without specific prior written permission.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND}
+\textcolor{comment}{ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE}
+\textcolor{comment}{ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE}
+\textcolor{comment}{ * ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE}
+\textcolor{comment}{ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL}
+\textcolor{comment}{ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS}
+\textcolor{comment}{ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)}
+\textcolor{comment}{ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT}
+\textcolor{comment}{ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY}
+\textcolor{comment}{ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF}
+\textcolor{comment}{ * SUCH DAMAGE.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * This file is part of the Contiki operating system.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ */}
+\textcolor{comment}{}
+\textcolor{comment}{/**}
+\textcolor{comment}{ * \(\backslash\)file}
+\textcolor{comment}{ *         Testing the rucb code in Rime}
+\textcolor{comment}{ * \(\backslash\)author}
+\textcolor{comment}{ *         Adam Dunkels <adam@sics.se>}
+\textcolor{comment}{ */}
+
+\textcolor{preprocessor}{#include "contiki.h"}
+\textcolor{preprocessor}{#include "net/rime/rucb.h"}
+
+\textcolor{preprocessor}{#include "dev/button-sensor.h"}
+
+\textcolor{preprocessor}{#include "dev/leds.h"}
+
+\textcolor{preprocessor}{#include "cfs/cfs.h"}
+\textcolor{preprocessor}{#include "lib/print-stats.h"}
+\textcolor{preprocessor}{#include "sys/profile.h"}
+
+\textcolor{preprocessor}{#include <stdio.h>}
+
+\textcolor{preprocessor}{#if CONTIKI\_TARGET\_NETSIM}
+\textcolor{preprocessor}{#include "ether.h"}
+\textcolor{preprocessor}{#include "node.h"}
+\textcolor{preprocessor}{#endif }\textcolor{comment}{/* CONTIKI\_TARGET\_NETSIM */}\textcolor{preprocessor}{}
+
+\textcolor{preprocessor}{#define FILESIZE 40000}
+
+\textcolor{keyword}{static} \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{long} bytecount;
+\textcolor{keyword}{static} clock\_time\_t start\_time;
+
+\textcolor{keyword}{extern} \textcolor{keywordtype}{int} profile\_max\_queuelen;
+
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+PROCESS(example\_rucb\_process, \textcolor{stringliteral}{"Rucb example"});
+AUTOSTART\_PROCESSES(&example\_rucb\_process);
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{keyword}{static} \textcolor{keywordtype}{void}
+write\_chunk(\textcolor{keyword}{struct} rucb\_conn *c, \textcolor{keywordtype}{int} offset, \textcolor{keywordtype}{int} flag,
+            \textcolor{keywordtype}{char} *data, \textcolor{keywordtype}{int} datalen)
+\{
+\textcolor{preprocessor}{#if CONTIKI\_TARGET\_NETSIM}
+  \{
+    \textcolor{keywordtype}{char} buf[100];
+    printf(\textcolor{stringliteral}{"received %d; %d\(\backslash\)n"}, offset, datalen);
+    sprintf(buf, \textcolor{stringliteral}{"%d%%"}, (100 * (offset + datalen)) / FILESIZE);
+    ether\_set\_text(buf);
+  \}
+\textcolor{preprocessor}{#endif }\textcolor{comment}{/* CONTIKI\_TARGET\_NETSIM */}\textcolor{preprocessor}{}
+
+\}
+\textcolor{keyword}{static} \textcolor{keywordtype}{int}
+read\_chunk(\textcolor{keyword}{struct} rucb\_conn *c, \textcolor{keywordtype}{int} offset, \textcolor{keywordtype}{char} *to, \textcolor{keywordtype}{int} maxsize)
+\{
+  \textcolor{keywordtype}{int} size;
+  size = maxsize;
+  \textcolor{keywordflow}{if}(bytecount + maxsize >= FILESIZE) \{
+    size = FILESIZE - bytecount;
+  \}
+  bytecount += size;
+
+  \textcolor{keywordflow}{if}(bytecount == FILESIZE) \{
+    printf(\textcolor{stringliteral}{"Completion time %lu / %u\(\backslash\)n"}, (\textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{long})clock\_time() - start\_time, CLOCK\_SECOND);
+    \textcolor{comment}{/*     profile\_aggregates\_print(); */}
+\textcolor{comment}{/*     profile\_print\_stats(); */}
+    print\_stats();
+  \}
+
+  \textcolor{comment}{/*  printf("bytecount %lu\(\backslash\)n", bytecount);*/}
+  \textcolor{keywordflow}{return} size;
+\}
+\textcolor{keyword}{const} \textcolor{keyword}{static} \textcolor{keyword}{struct }rucb\_callbacks rucb\_call = \{write\_chunk, read\_chunk,
+                                                NULL\};
+\textcolor{keyword}{static} \textcolor{keyword}{struct }rucb\_conn rucb;
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{preprocessor}{#include "sys/node-id.h"}
+
+PROCESS\_THREAD(example\_rucb\_process, ev, data)
+\{
+  PROCESS\_EXITHANDLER(rucb\_close(&rucb);)
+  PROCESS\_BEGIN();
+
+  PROCESS\_PAUSE();
+
+  
+  rucb\_open(&rucb, 137, &rucb\_call);
+  SENSORS\_ACTIVATE(button\_sensor);
+
+  PROCESS\_PAUSE();
+
+  \textcolor{keywordflow}{if}(rimeaddr\_node\_addr.u8[0] == 51 &&
+      rimeaddr\_node\_addr.u8[1] == 0) \{
+    rimeaddr\_t recv;
+
+    recv.u8[0] = 52;
+    recv.u8[1] = 0;
+    start\_time = clock\_time();
+
+    \textcolor{comment}{/*printf("%u.%u: sending rucb to address %u.%u at time %u\(\backslash\)n",}
+\textcolor{comment}{        rimeaddr\_node\_addr.u8[0],}
+\textcolor{comment}{        rimeaddr\_node\_addr.u8[1],}
+\textcolor{comment}{        recv.u8[0],}
+\textcolor{comment}{        recv.u8[1],}
+\textcolor{comment}{        start\_time);*/}
+
+    rucb\_send(&rucb, &recv);
+\textcolor{preprocessor}{#if CONTIKI\_TARGET\_NETSIM}
+    ether\_send\_done();
+\textcolor{preprocessor}{#endif }\textcolor{comment}{/* CONTIKI\_TARGET\_NETSIM */}\textcolor{preprocessor}{}
+  \}
+
+  \textcolor{keywordflow}{while}(1) \{
+
+    PROCESS\_WAIT\_EVENT\_UNTIL(ev == sensors\_event &&
+                             data == &button\_sensor);
+    \textcolor{comment}{/*rucb\_stop(&rucb);*/}
+
+  \}
+  PROCESS\_END();
+\}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\end{DoxyCodeInclude}
+ 

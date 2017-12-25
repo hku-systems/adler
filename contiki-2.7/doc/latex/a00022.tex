@@ -1,0 +1,258 @@
+\hypertarget{a00022}{}\subsection{example-\/multihop.\+c}
+
+\begin{DoxyCodeInclude}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * Copyright (c) 2007, Swedish Institute of Computer Science.}
+\textcolor{comment}{ * All rights reserved.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * Redistribution and use in source and binary forms, with or without}
+\textcolor{comment}{ * modification, are permitted provided that the following conditions}
+\textcolor{comment}{ * are met:}
+\textcolor{comment}{ * 1. Redistributions of source code must retain the above copyright}
+\textcolor{comment}{ *    notice, this list of conditions and the following disclaimer.}
+\textcolor{comment}{ * 2. Redistributions in binary form must reproduce the above copyright}
+\textcolor{comment}{ *    notice, this list of conditions and the following disclaimer in the}
+\textcolor{comment}{ *    documentation and/or other materials provided with the distribution.}
+\textcolor{comment}{ * 3. Neither the name of the Institute nor the names of its contributors}
+\textcolor{comment}{ *    may be used to endorse or promote products derived from this software}
+\textcolor{comment}{ *    without specific prior written permission.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND}
+\textcolor{comment}{ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE}
+\textcolor{comment}{ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE}
+\textcolor{comment}{ * ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE}
+\textcolor{comment}{ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL}
+\textcolor{comment}{ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS}
+\textcolor{comment}{ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)}
+\textcolor{comment}{ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT}
+\textcolor{comment}{ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY}
+\textcolor{comment}{ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF}
+\textcolor{comment}{ * SUCH DAMAGE.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ * This file is part of the Contiki operating system.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ */}
+\textcolor{comment}{}
+\textcolor{comment}{/**}
+\textcolor{comment}{ * \(\backslash\)file}
+\textcolor{comment}{ *         Testing the multihop forwarding layer (multihop) in Rime}
+\textcolor{comment}{ * \(\backslash\)author}
+\textcolor{comment}{ *         Adam Dunkels <adam@sics.se>}
+\textcolor{comment}{ *}
+\textcolor{comment}{ *}
+\textcolor{comment}{ *         This example shows how to use the multihop Rime module, how}
+\textcolor{comment}{ *         to use the announcement mechanism, how to manage a list}
+\textcolor{comment}{ *         with the list module, and how to allocate memory with the}
+\textcolor{comment}{ *         memb module.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ *         The multihop module provides hooks for forwarding packets}
+\textcolor{comment}{ *         in a multi-hop fashion, but does not implement any routing}
+\textcolor{comment}{ *         protocol. A routing mechanism must be provided by the}
+\textcolor{comment}{ *         application or protocol running on top of the multihop}
+\textcolor{comment}{ *         module. In this case, this example program provides the}
+\textcolor{comment}{ *         routing mechanism.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ *         The routing mechanism implemented by this example program}
+\textcolor{comment}{ *         is very simple: it forwards every incoming packet to a}
+\textcolor{comment}{ *         random neighbor. The program maintains a list of neighbors,}
+\textcolor{comment}{ *         which it populated through the use of the announcement}
+\textcolor{comment}{ *         mechanism.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ *         The neighbor list is populated by incoming announcements}
+\textcolor{comment}{ *         from neighbors. The program maintains a list of neighbors,}
+\textcolor{comment}{ *         where each entry is allocated from a MEMB() (memory block}
+\textcolor{comment}{ *         pool). Each neighbor has a timeout so that they do not}
+\textcolor{comment}{ *         occupy their list entry for too long.}
+\textcolor{comment}{ *}
+\textcolor{comment}{ *         When a packet arrives to the node, the function forward()}
+\textcolor{comment}{ *         is called by the multihop layer. This function picks a}
+\textcolor{comment}{ *         random neighbor to send the packet to. The packet is}
+\textcolor{comment}{ *         forwarded by every node in the network until it reaches its}
+\textcolor{comment}{ *         final destination (or is discarded in transit due to a}
+\textcolor{comment}{ *         transmission error or a collision).}
+\textcolor{comment}{ *}
+\textcolor{comment}{ */}
+
+\textcolor{preprocessor}{#include "contiki.h"}
+\textcolor{preprocessor}{#include "net/rime.h"}
+\textcolor{preprocessor}{#include "lib/list.h"}
+\textcolor{preprocessor}{#include "lib/memb.h"}
+\textcolor{preprocessor}{#include "lib/random.h"}
+\textcolor{preprocessor}{#include "dev/button-sensor.h"}
+\textcolor{preprocessor}{#include "dev/leds.h"}
+
+\textcolor{preprocessor}{#include <stdio.h>}
+
+\textcolor{preprocessor}{#define CHANNEL 135}
+
+
+\textcolor{keyword}{struct }example\_neighbor \{
+  \textcolor{keyword}{struct }example\_neighbor *next;
+  rimeaddr\_t addr;
+  \textcolor{keyword}{struct }ctimer ctimer;
+\};
+
+\textcolor{preprocessor}{#define NEIGHBOR\_TIMEOUT 60 * CLOCK\_SECOND}
+\textcolor{preprocessor}{#define MAX\_NEIGHBORS 16}
+LIST(neighbor\_table);
+MEMB(neighbor\_mem, \textcolor{keyword}{struct} example\_neighbor, MAX\_NEIGHBORS);
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+PROCESS(example\_multihop\_process, \textcolor{stringliteral}{"multihop example"});
+AUTOSTART\_PROCESSES(&example\_multihop\_process);
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * This function is called by the ctimer present in each neighbor}
+\textcolor{comment}{ * table entry. The function removes the neighbor from the table}
+\textcolor{comment}{ * because it has become too old.}
+\textcolor{comment}{ */}
+\textcolor{keyword}{static} \textcolor{keywordtype}{void}
+remove\_neighbor(\textcolor{keywordtype}{void} *n)
+\{
+  \textcolor{keyword}{struct }example\_neighbor *e = n;
+
+  list\_remove(neighbor\_table, e);
+  memb\_free(&neighbor\_mem, e);
+\}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * This function is called when an incoming announcement arrives. The}
+\textcolor{comment}{ * function checks the neighbor table to see if the neighbor is}
+\textcolor{comment}{ * already present in the list. If the neighbor is not present in the}
+\textcolor{comment}{ * list, a new neighbor table entry is allocated and is added to the}
+\textcolor{comment}{ * neighbor table.}
+\textcolor{comment}{ */}
+\textcolor{keyword}{static} \textcolor{keywordtype}{void}
+received\_announcement(\textcolor{keyword}{struct} announcement *a,
+                      \textcolor{keyword}{const} rimeaddr\_t *from,
+                      uint16\_t \textcolor{keywordtype}{id}, uint16\_t value)
+\{
+  \textcolor{keyword}{struct }example\_neighbor *e;
+
+  \textcolor{comment}{/*  printf("Got announcement from %d.%d, id %d, value %d\(\backslash\)n",}
+\textcolor{comment}{      from->u8[0], from->u8[1], id, value);*/}
+
+  \textcolor{comment}{/* We received an announcement from a neighbor so we need to update}
+\textcolor{comment}{     the neighbor list, or add a new entry to the table. */}
+  \textcolor{keywordflow}{for}(e = list\_head(neighbor\_table); e != NULL; e = e->next) \{
+    \textcolor{keywordflow}{if}(rimeaddr\_cmp(from, &e->addr)) \{
+      \textcolor{comment}{/* Our neighbor was found, so we update the timeout. */}
+      ctimer\_set(&e->ctimer, NEIGHBOR\_TIMEOUT, remove\_neighbor, e);
+      \textcolor{keywordflow}{return};
+    \}
+  \}
+
+  \textcolor{comment}{/* The neighbor was not found in the list, so we add a new entry by}
+\textcolor{comment}{     allocating memory from the neighbor\_mem pool, fill in the}
+\textcolor{comment}{     necessary fields, and add it to the list. */}
+  e = memb\_alloc(&neighbor\_mem);
+  \textcolor{keywordflow}{if}(e != NULL) \{
+    rimeaddr\_copy(&e->addr, from);
+    list\_add(neighbor\_table, e);
+    ctimer\_set(&e->ctimer, NEIGHBOR\_TIMEOUT, remove\_neighbor, e);
+  \}
+\}
+\textcolor{keyword}{static} \textcolor{keyword}{struct }announcement example\_announcement;
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * This function is called at the final recepient of the message.}
+\textcolor{comment}{ */}
+\textcolor{keyword}{static} \textcolor{keywordtype}{void}
+recv(\textcolor{keyword}{struct} multihop\_conn *c, \textcolor{keyword}{const} rimeaddr\_t *sender,
+     \textcolor{keyword}{const} rimeaddr\_t *prevhop,
+     uint8\_t hops)
+\{
+  printf(\textcolor{stringliteral}{"multihop message received '%s'\(\backslash\)n"}, (\textcolor{keywordtype}{char} *)packetbuf\_dataptr());
+\}
+\textcolor{comment}{/*}
+\textcolor{comment}{ * This function is called to forward a packet. The function picks a}
+\textcolor{comment}{ * random neighbor from the neighbor list and returns its address. The}
+\textcolor{comment}{ * multihop layer sends the packet to this address. If no neighbor is}
+\textcolor{comment}{ * found, the function returns NULL to signal to the multihop layer}
+\textcolor{comment}{ * that the packet should be dropped.}
+\textcolor{comment}{ */}
+\textcolor{keyword}{static} rimeaddr\_t *
+forward(\textcolor{keyword}{struct} multihop\_conn *c,
+        \textcolor{keyword}{const} rimeaddr\_t *originator, \textcolor{keyword}{const} rimeaddr\_t *dest,
+        \textcolor{keyword}{const} rimeaddr\_t *prevhop, uint8\_t hops)
+\{
+  \textcolor{comment}{/* Find a random neighbor to send to. */}
+  \textcolor{keywordtype}{int} num, i;
+  \textcolor{keyword}{struct }example\_neighbor *n;
+
+  \textcolor{keywordflow}{if}(list\_length(neighbor\_table) > 0) \{
+    num = random\_rand() % list\_length(neighbor\_table);
+    i = 0;
+    \textcolor{keywordflow}{for}(n = list\_head(neighbor\_table); n != NULL && i != num; n = n->next) \{
+      ++i;
+    \}
+    \textcolor{keywordflow}{if}(n != NULL) \{
+      printf(\textcolor{stringliteral}{"%d.%d: Forwarding packet to %d.%d (%d in list), hops %d\(\backslash\)n"},
+             rimeaddr\_node\_addr.u8[0], rimeaddr\_node\_addr.u8[1],
+             n->addr.u8[0], n->addr.u8[1], num,
+             packetbuf\_attr(PACKETBUF\_ATTR\_HOPS));
+      \textcolor{keywordflow}{return} &n->addr;
+    \}
+  \}
+  printf(\textcolor{stringliteral}{"%d.%d: did not find a neighbor to foward to\(\backslash\)n"},
+         rimeaddr\_node\_addr.u8[0], rimeaddr\_node\_addr.u8[1]);
+  \textcolor{keywordflow}{return} NULL;
+\}
+\textcolor{keyword}{static} \textcolor{keyword}{const} \textcolor{keyword}{struct }multihop\_callbacks multihop\_call = \{recv, forward\};
+\textcolor{keyword}{static} \textcolor{keyword}{struct }multihop\_conn multihop;
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+PROCESS\_THREAD(example\_multihop\_process, ev, data)
+\{
+  PROCESS\_EXITHANDLER(multihop\_close(&multihop);)
+    
+  PROCESS\_BEGIN();
+
+  \textcolor{comment}{/* Initialize the memory for the neighbor table entries. */}
+  memb\_init(&neighbor\_mem);
+
+  \textcolor{comment}{/* Initialize the list used for the neighbor table. */}
+  list\_init(neighbor\_table);
+
+  \textcolor{comment}{/* Open a multihop connection on Rime channel CHANNEL. */}
+  multihop\_open(&multihop, CHANNEL, &multihop\_call);
+
+  \textcolor{comment}{/* Register an announcement with the same announcement ID as the}
+\textcolor{comment}{     Rime channel we use to open the multihop connection above. */}
+  announcement\_register(&example\_announcement,
+                        CHANNEL,
+                        received\_announcement);
+
+  \textcolor{comment}{/* Set a dummy value to start sending out announcments. */}
+  announcement\_set\_value(&example\_announcement, 0);
+
+  \textcolor{comment}{/* Activate the button sensor. We use the button to drive traffic -}
+\textcolor{comment}{     when the button is pressed, a packet is sent. */}
+  SENSORS\_ACTIVATE(button\_sensor);
+
+  \textcolor{comment}{/* Loop forever, send a packet when the button is pressed. */}
+  \textcolor{keywordflow}{while}(1) \{
+    rimeaddr\_t to;
+
+    \textcolor{comment}{/* Wait until we get a sensor event with the button sensor as data. */}
+    PROCESS\_WAIT\_EVENT\_UNTIL(ev == sensors\_event &&
+                             data == &button\_sensor);
+
+    \textcolor{comment}{/* Copy the "Hello" to the packet buffer. */}
+    packetbuf\_copyfrom(\textcolor{stringliteral}{"Hello"}, 6);
+
+    \textcolor{comment}{/* Set the Rime address of the final receiver of the packet to}
+\textcolor{comment}{       1.0. This is a value that happens to work nicely in a Cooja}
+\textcolor{comment}{       simulation (because the default simulation setup creates one}
+\textcolor{comment}{       node with address 1.0). */}
+    to.u8[0] = 1;
+    to.u8[1] = 0;
+
+    \textcolor{comment}{/* Send the packet. */}
+    multihop\_send(&multihop, &to);
+
+  \}
+
+  PROCESS\_END();
+\}
+\textcolor{comment}{/*---------------------------------------------------------------------------*/}
+\end{DoxyCodeInclude}
+ 
